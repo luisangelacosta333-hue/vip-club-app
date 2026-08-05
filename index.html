@@ -16,6 +16,8 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <script src="https://unpkg.com/html5-qrcode"></script>
+    <!-- NUEVO: Librería para capturar el diseño completo al compartir -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     
     <style>
         /* =====================================================
@@ -569,7 +571,7 @@
             color: var(--text-soft);
             text-transform: uppercase;
         }
-        .admin-hero-sub b { display: block; font-size: 1.4rem; margin-top: 4px; } /* FIX TAMAÑO AUMENTADO */
+        .admin-hero-sub b { display: block; font-size: 1.4rem; margin-top: 4px; }
         
         /* === TARJETAS DE SECTOR CON MINI-GRAFICO === */
         .sector-card {
@@ -678,7 +680,7 @@
             text-transform: uppercase;
             color: var(--text-gray);
         }
-        .mini-bar-label b { font-size: 1.1rem; } /* FIX TAMAÑO AUMENTADO */
+        .mini-bar-label b { font-size: 1.1rem; }
         .mini-bar-track {
             height: 10px;
             border-radius: 999px;
@@ -1208,7 +1210,6 @@
         }
         
         /* === PUERTA / QR === */
-        /* FIX CÁMARA (MIN-HEIGHT) */
         #reader, #reader-barra {
             width: 100%;
             min-height: 250px; 
@@ -1219,9 +1220,6 @@
                         linear-gradient(135deg, var(--neon-cyan), var(--neon-purple)) border-box;
             box-shadow: var(--shadow-neon-cyan), var(--shadow-neon-purple);
         }
-        
-        /* === MODAL QR === */
-        /* Eliminamos el ID qr-container del CSS original porque ahora lo aplicamos en linea para que al compartir salga con fondo blanco */
         
         /* === UTILS === */
         .section-title {
@@ -1247,12 +1245,6 @@
             opacity: 0.35;
             margin-bottom: 12px;
         }
-        .divider-gradient {
-            height: 1px;
-            border: none;
-            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.15), transparent);
-            margin: 8px 0;
-        }
         
         /* =====================================================
            🆕 NUEVO: ESCÁNER INTELIGENTE DE BARRA
@@ -1273,11 +1265,12 @@
         }
         .entregar-label {
             font-family: 'Orbitron', sans-serif;
-            font-size: 0.7rem;
+            font-size: 0.8rem;
             letter-spacing: 3px;
             color: var(--neon-green);
             text-transform: uppercase;
             margin-bottom: 10px;
+            font-weight: 900;
         }
         .entregar-producto {
             font-family: 'Orbitron', sans-serif;
@@ -1300,47 +1293,6 @@
             font-weight: 900;
             font-size: 1.2rem;
             letter-spacing: 2px;
-        }
-        .ticket-meta-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 10px;
-            margin-top: 16px;
-        }
-        .ticket-meta-item {
-            background: rgba(255,255,255,0.04);
-            border: 1px solid rgba(255,255,255,0.08);
-            border-radius: 14px;
-            padding: 12px;
-            text-align: center;
-        }
-        .ticket-meta-item span {
-            display: block;
-            font-size: 0.6rem;
-            letter-spacing: 2px;
-            text-transform: uppercase;
-            color: var(--text-gray);
-            font-weight: 800;
-            margin-bottom: 4px;
-        }
-        .ticket-meta-item b {
-            font-family: 'Orbitron', sans-serif;
-            font-size: 1rem;
-            color: white;
-        }
-        .quemado-badge {
-            display: inline-block;
-            margin-top: 14px;
-            padding: 8px 18px;
-            border-radius: 999px;
-            background: rgba(255,45,85,0.12);
-            border: 1.5px solid rgba(255,45,85,0.4);
-            color: var(--neon-red);
-            font-family: 'Orbitron', sans-serif;
-            font-weight: 900;
-            font-size: 0.75rem;
-            letter-spacing: 2px;
-            text-transform: uppercase;
         }
         
         /* === RESPONSIVE === */
@@ -1816,9 +1768,9 @@
         </div>
     </div>
     
-    <!-- MODAL QR MODIFICADO CON BOTÓN DE COMPARTIR -->
+    <!-- MODAL QR MODIFICADO PARA COMPARTIR PANTALLA COMPLETA -->
     <div class="modal" id="modal-qr">
-        <div class="modal-content" style="border-color: rgba(0,240,255,0.5); padding: 30px 24px;">
+        <div class="modal-content" id="modal-qr-content" style="border-color: rgba(0,240,255,0.5); padding: 30px 24px;">
             <div style="display: flex; justify-content: center; align-items: center; gap: 10px; margin-bottom: 14px;">
                 <span style="font-size: 1.8rem;">✅</span>
                 <h2 class="font-display neon-cyan" style="font-size: 1.3rem; margin: 0; letter-spacing: 3px;">COBRO EXITOSO</h2>
@@ -1830,8 +1782,11 @@
             
             <p style="color: var(--text-gray); font-size: 0.85rem; font-weight: 500; line-height: 1.5; margin: 0 0 15px;">Mostrale este QR al cliente o envialo a la tablet. <b class="neon-red">ES DE 1 SOLO USO.</b></p>
             
-            <button class="btn btn-purple" style="margin-bottom: 12px; font-size: 0.85rem;" onclick="compartirQR()">📲 COMPARTIR QR</button>
-            <button class="btn btn-cyan" style="margin-bottom: 0;" onclick="document.getElementById('modal-qr').style.display='none'; clearCalc();">FINALIZAR</button>
+            <!-- Botones (Se ocultan al tomar la foto) -->
+            <div id="qr-buttons">
+                <button class="btn btn-purple" style="margin-bottom: 12px; font-size: 0.85rem;" onclick="compartirQR()">📸 COMPARTIR TICKET VIP</button>
+                <button class="btn btn-cyan" style="margin-bottom: 0;" onclick="document.getElementById('modal-qr').style.display='none'; clearCalc();">FINALIZAR</button>
+            </div>
         </div>
     </div>
     
@@ -2350,7 +2305,8 @@
             
             const tid = 'VIP-' + Date.now().toString().slice(-7);
             const safeOrigin = currentBarraId.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-            const safeProduct = selProd.name.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+            // Fix: Mantenemos el nombre completo original para que se vea bien al escanear
+            const safeProduct = selProd.name; 
             
             const ticketData = { id: tid, qty: qty, product: safeProduct, category: selProd.category, amount: val, origin: safeOrigin, method: method, time: getTimeStr(), date: getDateStr() };
             dbState.tickets.push({ ...ticketData, status: 'ACTIVO' });
@@ -2393,11 +2349,23 @@
         }
         
         /* ============================================================
-           🆕 ESCÁNER DE PUERTA Y BARRA
+           🆕 ESCÁNER DE PUERTA Y BARRA (¡Arreglado el parseo de datos!)
            ============================================================ */
         function iniciarEscaner() { if (html5QrcodeScanner) return; html5QrcodeScanner = new Html5Qrcode("reader"); html5QrcodeScanner.start({ facingMode: "environment" }, { fps: 12, qrbox: { width: 260, height: 260 } }, decodedText => validarTicketPuerta(decodedText), () => {}).catch(err => { showPremiumAlert("ERROR CÁMARA", "Aceptá los permisos."); html5QrcodeScanner = null; }); }
         function detenerEscaner() { if (html5QrcodeScanner) { html5QrcodeScanner.stop().then(() => { html5QrcodeScanner = null; go('view-roles'); }); } else go('view-roles'); }
-        function parseTicketData(raw) { try { if (raw.trim().startsWith('{')) return JSON.parse(raw); return dbState.tickets.find(x => x.id === raw.trim()) || null; } catch(e) { return dbState.tickets.find(x => x.id === raw.trim()) || null; } }
+        
+        // CORRECCIÓN 1: El parseo ahora lee SIEMPRE el estado real de la base de datos en tiempo real
+        function parseTicketData(raw) {
+            let ticketId = raw.trim();
+            try {
+                if (ticketId.startsWith('{')) {
+                    const parsed = JSON.parse(ticketId);
+                    ticketId = parsed.id; // Extraemos solo el ID del texto escaneado
+                }
+            } catch(e) { }
+            // Buscamos el ticket en la BD para traer su estado real ("ACTIVO" o "USADO")
+            return dbState.tickets.find(x => x.id === ticketId) || null;
+        }
         
         function validarTicketPuerta(raw) {
             html5QrcodeScanner.pause(); const data = parseTicketData(raw); const box = document.getElementById('alerta-content'); if (!box) return;
@@ -2411,12 +2379,27 @@
         function iniciarEscanerBarra() { if (html5QrBarra) return; html5QrBarra = new Html5Qrcode("reader-barra"); html5QrBarra.start({ facingMode: "environment" }, { fps: 12, qrbox: { width: 280, height: 280 } }, decodedText => validarTicketBarra(decodedText), () => {}).catch(err => { showPremiumAlert("ERROR CÁMARA", "Aceptá los permisos."); html5QrBarra = null; }); }
         function detenerEscanerBarra() { if (html5QrBarra) { html5QrBarra.stop().then(() => { html5QrBarra = null; go('view-roles'); }); } else go('view-roles'); }
         
+        // CORRECCIÓN 2: Interfaz de barra que muestra CLARAMENTE qué producto entregar y lo quema automático
         function validarTicketBarra(raw) {
             html5QrBarra.pause(); const data = parseTicketData(raw); const box = document.getElementById('alerta-content'); if (!box) return;
             if (!data) { box.innerHTML = `<div class="scanner-big-icon neon-red">⛔</div><h2 class="font-display neon-red" style="font-size:1.8rem;">CÓDIGO INVÁLIDO</h2><button class="btn btn-purple" onclick="cerrarAlertaBarra()">VOLVER A ESCANEAR</button>`; box.style.borderColor = 'rgba(255,45,85,0.4)'; }
             else if (data.status !== 'ACTIVO') { box.innerHTML = `<div class="scanner-big-icon neon-red">🔥</div><h2 class="font-display neon-red" style="font-size:1.6rem;">¡QR YA QUEMADO!</h2><button class="btn btn-purple" onclick="cerrarAlertaBarra()">VOLVER A ESCANEAR</button>`; box.style.borderColor = 'rgba(255,45,85,0.4)'; }
             else if (data.category === 'entrada') { box.innerHTML = `<div class="scanner-big-icon neon-purple">🎟️</div><h2 class="font-display neon-purple" style="font-size:1.6rem;">ES UNA ENTRADA</h2><button class="btn btn-purple" onclick="cerrarAlertaBarra()">VOLVER A ESCANEAR</button>`; box.style.borderColor = 'rgba(180,0,255,0.4)'; }
-            else { const idx = dbState.tickets.findIndex(t => t.id === data.id); if (idx >= 0) dbState.tickets[idx].status = 'ENTREGADO'; syncToCloud(); try { const voz = new SpeechSynthesisUtterance(); voz.text = `ENTREGAR: ${data.qty} ${data.product.toUpperCase()}`; voz.lang = 'es-AR'; window.speechSynthesis.cancel(); window.speechSynthesis.speak(voz); } catch(e){} box.innerHTML = `<div class="scanner-big-icon neon-green">✅</div><h2 class="font-display" style="color:var(--neon-green);">¡CÓDIGO VÁLIDO!</h2><div class="entregar-box"><div class="entregar-producto">${data.product}</div><div class="entregar-cantidad">${data.qty} UNIDADES</div></div><button class="btn btn-cyan" style="margin-top:20px;" onclick="cerrarAlertaBarra()">SIGUIENTE CLIENTE</button>`; box.style.borderColor = 'rgba(0,255,148,0.4)'; }
+            else { 
+                const idx = dbState.tickets.findIndex(t => t.id === data.id); if (idx >= 0) dbState.tickets[idx].status = 'ENTREGADO'; syncToCloud(); 
+                try { const voz = new SpeechSynthesisUtterance(); voz.text = `ENTREGAR: ${data.qty} ${data.product.toUpperCase()}`; voz.lang = 'es-AR'; window.speechSynthesis.cancel(); window.speechSynthesis.speak(voz); } catch(e){} 
+                box.innerHTML = `
+                    <div class="scanner-big-icon neon-green">✅</div>
+                    <h2 class="font-display" style="color:var(--neon-green);">¡CÓDIGO VÁLIDO!</h2>
+                    <div class="entregar-box">
+                        <div class="entregar-label">🔥 DESPACHAR AHORA:</div>
+                        <div class="entregar-producto">${data.product}</div>
+                        <div class="entregar-cantidad">${data.qty} UNIDADES</div>
+                    </div>
+                    <button class="btn btn-cyan" style="margin-top:20px;" onclick="cerrarAlertaBarra()">SIGUIENTE CLIENTE</button>
+                `; 
+                box.style.borderColor = 'rgba(0,255,148,0.4)'; 
+            }
             document.getElementById('modal-alerta').style.display = 'flex';
         }
         
@@ -2440,24 +2423,26 @@
             } catch(e) { console.log("Guardado offline ok."); }
         }
 
-        /* ========== COMPARTIR QR ========== */
+        /* ========== COMPARTIR QR A PANTALLA COMPLETA ========== */
+        // CORRECCIÓN 3: Toma una foto en HD de toda la pantalla y la comparte
         async function compartirQR() {
             try {
-                const qrBox = document.getElementById('qr-container');
-                const canvas = qrBox.querySelector('canvas');
-                const img = qrBox.querySelector('img');
+                const targetNode = document.getElementById('modal-qr-content');
+                const btnContainer = document.getElementById('qr-buttons');
                 
-                let dataUrl = '';
-                if (canvas && canvas.style.display !== 'none') {
-                    dataUrl = canvas.toDataURL('image/png');
-                } else if (img && img.src) {
-                    dataUrl = img.src;
-                }
-                
-                if (!dataUrl) {
-                    return showPremiumAlert("ERROR", "No se pudo generar la imagen para compartir.");
-                }
+                // Ocultamos los botones temporalmente para que no salgan en la foto
+                btnContainer.style.display = 'none';
 
+                // Generamos la captura de toda la tarjeta de cristal
+                const canvas = await html2canvas(targetNode, {
+                    backgroundColor: '#0a0a14', 
+                    scale: 2 // Alta calidad
+                });
+
+                // Volvemos a mostrar los botones
+                btnContainer.style.display = 'block';
+
+                const dataUrl = canvas.toDataURL('image/png');
                 const res = await fetch(dataUrl);
                 const blob = await res.blob();
                 const file = new File([blob], `VIP-Ticket-${Date.now()}.png`, { type: "image/png" });
@@ -2469,10 +2454,12 @@
                         files: [file]
                     });
                 } else {
-                    showPremiumAlert("COMPARTIR", "Tu dispositivo o navegador no soporta compartir esta imagen directamente. Podés hacerle una captura de pantalla.");
+                    showPremiumAlert("COMPARTIR", "Tu dispositivo o navegador no soporta compartir esta imagen directamente. Podés hacerle una captura de pantalla normal.");
                 }
             } catch (err) {
                 console.log("Compartir cancelado o error: ", err);
+                const btnContainer = document.getElementById('qr-buttons');
+                if (btnContainer) btnContainer.style.display = 'block';
             }
         }
 
