@@ -1316,7 +1316,9 @@
     <div class="bg-animated"></div>
     <div class="particles"></div>
     
-    <input type="file" id="foto-input-camara" accept="image/*" capture="environment" style="display:none;" onchange="processTransferWithPhoto(event)">
+    <!-- FIX: Se le quitó el environment para forzar en todos los celulares la apertura de la cámara -->
+    <input type="file" id="foto-input-camara" accept="image/*" capture style="display:none;" onchange="processTransferWithPhoto(event)">
+    
     <!-- ==============================================
          1. LANDING - LOGIN CON NUEVO LOGO SVG
          ============================================== -->
