@@ -569,7 +569,7 @@
             color: var(--text-soft);
             text-transform: uppercase;
         }
-        .admin-hero-sub b { display: block; font-size: 1.4rem; margin-top: 4px; } /* FIX 3: TAMAÑO AUMENTADO */
+        .admin-hero-sub b { display: block; font-size: 1.4rem; margin-top: 4px; } /* FIX TAMAÑO AUMENTADO */
         
         /* === TARJETAS DE SECTOR CON MINI-GRAFICO === */
         .sector-card {
@@ -678,7 +678,7 @@
             text-transform: uppercase;
             color: var(--text-gray);
         }
-        .mini-bar-label b { font-size: 1.1rem; } /* FIX 3: TAMAÑO AUMENTADO */
+        .mini-bar-label b { font-size: 1.1rem; } /* FIX TAMAÑO AUMENTADO */
         .mini-bar-track {
             height: 10px;
             border-radius: 999px;
@@ -1208,7 +1208,7 @@
         }
         
         /* === PUERTA / QR === */
-        /* FIX 2: CÁMARA AHORA ABRE CORRECTAMENTE (MIN-HEIGHT AÑADIDO) */
+        /* FIX CÁMARA (MIN-HEIGHT) */
         #reader, #reader-barra {
             width: 100%;
             min-height: 250px; 
@@ -1822,6 +1822,8 @@
             <button class="btn btn-cyan" style="margin-bottom: 0;" onclick="document.getElementById('receipt-modal').style.display='none'">CERRAR</button>
         </div>
     </div>
+    
+    <!-- MODAL QR MODIFICADO CON BOTÓN DE COMPARTIR -->
     <div class="modal" id="modal-qr">
         <div class="modal-content" style="border-color: rgba(0,240,255,0.5); padding: 30px 24px;">
             <div style="display: flex; justify-content: center; align-items: center; gap: 10px; margin-bottom: 14px;">
@@ -1830,33 +1832,36 @@
             </div>
             <div id="qr-amount" class="font-display" style="font-size: 1.8rem; font-weight: 900; margin-bottom: 10px; background: var(--grad-gold); -webkit-background-clip: text; background-clip: text; color: transparent;"></div>
             <div id="qr-product-info" style="font-family:'Orbitron'; font-size:0.8rem; color:var(--text-soft); letter-spacing:1px; margin-bottom:20px; text-transform:uppercase;"></div>
-            <div id="qr-container"></div>
-            <p style="color: var(--text-gray); font-size: 0.85rem; font-weight: 500; line-height: 1.5; margin: 22px 0 6px;">Mostrale este QR al cliente. <b class="neon-red">ES DE 1 SOLO USO.</b></p>
-            <button class="btn btn-cyan" style="margin-bottom: 0; margin-top: 16px;" onclick="document.getElementById('modal-qr').style.display='none'; clearCalc();">FINALIZAR</button>
+            
+            <div id="qr-container" style="background: white; padding: 18px; border-radius: 24px; display: inline-block; margin: 10px 0 20px; box-shadow: 0 15px 40px rgba(0,240,255,0.3), 0 0 0 3px rgba(0,240,255,0.2);"></div>
+            
+            <p style="color: var(--text-gray); font-size: 0.85rem; font-weight: 500; line-height: 1.5; margin: 0 0 15px;">Mostrale este QR al cliente o envialo a la tablet. <b class="neon-red">ES DE 1 SOLO USO.</b></p>
+            
+            <button class="btn btn-purple" style="margin-bottom: 12px; font-size: 0.85rem;" onclick="compartirQR()">📲 COMPARTIR QR</button>
+            <button class="btn btn-cyan" style="margin-bottom: 0;" onclick="document.getElementById('modal-qr').style.display='none'; clearCalc();">FINALIZAR</button>
         </div>
     </div>
+    
     <div class="modal" id="modal-alerta">
         <div class="modal-content" id="alerta-content"></div>
     </div>
 
     <!-- ==============================================
-         JAVASCRIPT CON MOTOR SUPABASE SEPARADO + OFFLINE
+         JAVASCRIPT
          ============================================== -->
     <script>
         // === MOTOR OFFLINE - EVENTOS DE RED ===
         window.addEventListener('online', () => {
             document.getElementById('offline-banner').style.display = 'none';
             if (cUser) {
-                showPremiumAlert("🌐 CONEXIÓN RESTAURADA", "Sincronizando operaciones guardadas en el celular...", "success");
+                showPremiumAlert("🌐 CONEXIÓN RESTAURADA", "Sincronizando todas las ventas offline con la Bóveda del dueño...", "success");
                 syncToCloud();
             }
         });
         window.addEventListener('offline', () => {
             document.getElementById('offline-banner').style.display = 'block';
-            showPremiumAlert("📡 SIN INTERNET", "Modo offline activado. Podés seguir facturando, todo se guardará localmente.", "error");
+            showPremiumAlert("📡 SIN INTERNET", "Modo offline activado. Podés seguir facturando, todo se guardará en el celular.", "error");
         });
-
-        function uuidv4() { return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) { var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8); return v.toString(16); }); }
 
         function loadLocalDB() {
             const localData = localStorage.getItem('vip_dbState');
@@ -1865,6 +1870,7 @@
         function saveLocalDB() {
             localStorage.setItem('vip_dbState', JSON.stringify(dbState));
         }
+        // ======================================
 
         const supabaseUrl = 'https://drpjcmznauposqlhaveo.supabase.co'; 
         const supabaseKey = 'sb_publishable_xo7-uUQqtWvEWoLGqqlrsg_rxdroLx4';
@@ -1896,9 +1902,11 @@
         function leerFanPageAudio() {
             window.speechSynthesis.cancel();
             const s = new SpeechSynthesisUtterance();
-            s.text = "¡ATENCIÓN DUEÑO DE BOLICHE! Dejá de perder plata hoy mismo con VIP CLUB Ultra Premium de Energy Software...";
+            s.text = "¡ATENCIÓN DUEÑO DE BOLICHE! Dejá de perder plata hoy mismo con VIP CLUB Ultra Premium de Energy Software. ¿Sabés cuánta plata se te escapa por noche por papelitos falsos, chicas que se equivocan en la barra o cajas que no cierran bien? Nosotros lo solucionamos TODO desde tu celular. Mirá lo que hacemos por vos: PRIMERO: cada venta genera un CÓDIGO QR INTELIGENTE que se QUEMA SOLITO en un solo uso. ¡Imposible de falsificar! No más colas en puerta, no más gente que entra sin pagar. SEGUNDO: ESCÁNER EXCLUSIVO PARA TUS BARRAS. La chica escanea el QR del cliente y el sistema le dice EN VOZ ALTA y en PANTALLA GIGANTE: ENTREGAR 2 FERNET, 3 CERVEZAS, 1 VODKA. CERO ERRORES. CERO QUEJAS. CERO MERCANCÍA QUE DESAPARECE. TERCERO: controlás HASTA 5 BARRAS en simultáneo, cada una con su propio stock, su propia caja y su propio corte de turno. CUARTO: BÓVEDA DIGITAL con foto obligatoria de cada transferencia. No más 'no me llegó la transferencia'. QUINTO: PANEL DE DUEÑO en tiempo real. Estés donde estás, ves cuánto entró en efectivo, cuánto en transferencia, qué se vendió más y quién cerró bien. Y lo mejor de todo: NO NECESITÁS COMPRAR NINGUNA MÁQUINA CARA. Funciona con los CELULARES que ya tienen tus empleados. Instalás en 2 minutos, probás hoy mismo. VIP CLUB: tu boliche, al nivel de DIOS. ¡Probalo ya!";
             s.lang = 'es-AR'; 
             s.rate = 1.0; 
+            s.pitch = 1.05;
+            s.volume = 1;
             window.speechSynthesis.speak(s);
         }
         
@@ -1921,13 +1929,18 @@
                 if (data && data.length) return showPremiumAlert("ERROR", "Ese Boliche ya se encuentra registrado en el sistema.");
                 
                 const now = Date.now();
-                const expiresAt = now + (15 * 24 * 60 * 60 * 1000); 
+                const expiresAt = now + (15 * 24 * 60 * 60 * 1000); // 15 días en milisegundos
 
-                const appDataInicial = { sub_status: 'TRIAL', expires_at: expiresAt };
+                const appDataInicial = { 
+                    logs: [], tickets: [], inventory: [], barras: ["Barra 1"],
+                    sub_status: 'TRIAL', expires_at: expiresAt
+                };
 
-                await _supabase.from('usuarios').insert([{ local, pin, admin_pin: adm, app_data: appDataInicial }]);
-                await _supabase.from('barras').insert([{ local_id: local, nombre: 'Barra 1' }]);
+                const { error } = await _supabase.from('usuarios').insert([{
+                    local, pin, admin_pin: adm, app_data: appDataInicial
+                }]);
                 
+                if (error) throw error;
                 showPremiumAlert("¡FRANQUICIA CREADA!", "Tus 15 DÍAS GRATIS fueron activados. Ya podés ingresar al sistema.", "success");
                 document.getElementById('login-local').value = local;
                 document.getElementById('login-pin').value = pin;
@@ -1966,19 +1979,10 @@
                 }
                 
                 cUser = data.local; cPin = pin; cAdminPin = data.admin_pin || "0000";
-                
-                // MIGRACIÓN Y LECTURA DE NUEVAS TABLAS SEPARADAS
-                const { data: bData } = await _supabase.from('barras').select('nombre').eq('local_id', local);
-                dbState.barras = bData && bData.length ? bData.map(b => b.nombre) : ["Barra 1"];
-                
-                const { data: iData } = await _supabase.from('inventario').select('*').eq('local_id', local);
-                dbState.inventory = iData ? iData.map(i => ({ id: i.id, name: i.name, price: i.price, stock: i.stock, category: i.category, barId: i.bar_id, synced: true })) : [];
-                
-                const { data: tData } = await _supabase.from('tickets').select('*').eq('local_id', local);
-                dbState.tickets = tData ? tData.map(t => ({ id: t.id, qty: t.qty, product: t.product, category: t.category, amount: t.amount, origin: t.origin, method: t.method, status: t.status, date: t.date, time: t.time, synced: true, lastSyncStatus: t.status })) : [];
-                
-                const { data: lData } = await _supabase.from('logs').select('*').eq('local_id', local).order('created_at', { ascending: false }).limit(300);
-                dbState.logs = lData ? lData.map(l => ({ id: l.id, type: l.type, method: l.method, amount: l.amount, description: l.description, origin: l.origin, foto: l.foto_base64, ticketId: l.ticket_id, date: l.date, time: l.time, synced: true })) : [];
+                dbState.logs      = cd.logs      || [];
+                dbState.tickets   = cd.tickets   || [];
+                dbState.inventory = cd.inventory || [];
+                dbState.barras    = cd.barras    || ["Barra 1"];
 
                 localStorage.setItem('vip_cUser', cUser);
                 localStorage.setItem('vip_cPin', cPin);
@@ -2036,14 +2040,9 @@
         }
         
         function openModuleBarraSelect() {
-            if (!dbState.barras || !dbState.barras.length)
-                return showPremiumAlert("SIN BARRAS", "El Director aún no creó ninguna barra.");
-            let h = '';
-            dbState.barras.forEach(b => {
-                h += `<button class="btn btn-cyan" onclick="entrarABarra('${b}')">🍹 ${b.toUpperCase()}</button>`;
-            });
-            const el = document.getElementById('list-barras-cajero');
-            if (el) el.innerHTML = h;
+            if (!dbState.barras || !dbState.barras.length) return showPremiumAlert("SIN BARRAS", "El Director aún no creó ninguna barra.");
+            let h = ''; dbState.barras.forEach(b => { h += `<button class="btn btn-cyan" onclick="entrarABarra('${b}')">🍹 ${b.toUpperCase()}</button>`; });
+            document.getElementById('list-barras-cajero').innerHTML = h;
             document.getElementById('modal-select-barra').style.display = 'flex';
         }
         
@@ -2051,10 +2050,7 @@
             currentModule = 'Barra'; currentBarraId = n;
             document.getElementById('modal-select-barra').style.display = 'none';
             const ind = document.getElementById('active-bar-indicator');
-            if (ind) {
-                ind.className = 'indicator-pill cyan';
-                ind.innerText = `🍸 ${n.toUpperCase()}`;
-            }
+            if (ind) { ind.className = 'indicator-pill cyan'; ind.innerText = `🍸 ${n.toUpperCase()}`; }
             clearCalc(); go('view-caja');
         }
         
@@ -2063,6 +2059,7 @@
             document.getElementById('modal-admin-pin').style.display = 'flex';
             setTimeout(() => document.getElementById('input-admin-pin').focus(), 120);
         }
+        
         function verifyAdminPin() {
             const p = document.getElementById('input-admin-pin').value;
             if (p === cAdminPin) {
@@ -2078,19 +2075,13 @@
             if (!dbState.barras) dbState.barras = [];
             if (dbState.barras.length >= 5) return showPremiumAlert("LÍMITE", "Máximo 5 barras por franquicia.");
             if (dbState.barras.includes(n)) return showPremiumAlert("DUPLICADO", "Esa barra ya existe.");
-            dbState.barras.push(n);
-            if (navigator.onLine) _supabase.from('barras').insert({ local_id: cUser, nombre: n }).then();
-            syncToCloud(); renderAdmin();
+            dbState.barras.push(n); syncToCloud(); renderAdmin();
             document.getElementById('add-nombre-barra').value = '';
         }
         function eliminarBarra(n) {
             if (!confirm(`¿Eliminar "${n}"? Se borrarán sus productos.`)) return;
             dbState.barras = dbState.barras.filter(b => b !== n);
             dbState.inventory = dbState.inventory.filter(i => !(i.category === 'bebida' && i.barId === n));
-            if (navigator.onLine) {
-                _supabase.from('barras').delete().eq('local_id', cUser).eq('nombre', n).then();
-                _supabase.from('inventario').delete().eq('local_id', cUser).eq('bar_id', n).then();
-            }
             if (activeBarraCarga === n) activeBarraCarga = dbState.barras[0] || '';
             if (activeHistorialSector === n) activeHistorialSector = 'Boletería';
             syncToCloud(); renderAdmin();
@@ -2142,16 +2133,13 @@
             }
             if (!name || isNaN(price) || isNaN(stock)) return showPremiumAlert("DATOS INCOMPLETOS", "Completá nombre, precio y stock.");
             if (!dbState.inventory) dbState.inventory = [];
-            dbState.inventory.unshift({ id: 'ITM-' + Date.now(), name, price, stock, category: cat, barId, synced: false });
+            dbState.inventory.unshift({ id: 'ITM-' + Date.now(), name, price, stock, category: cat, barId });
             syncToCloud(); renderAdmin();
-            document.getElementById(`add-name-${cat}`).value = '';
-            document.getElementById(`add-price-${cat}`).value = '';
-            document.getElementById(`add-stock-${cat}`).value = '';
+            document.getElementById(`add-name-${cat}`).value = ''; document.getElementById(`add-price-${cat}`).value = ''; document.getElementById(`add-stock-${cat}`).value = '';
         }
         function removeProduct(id) {
             if (!confirm("¿Eliminar producto?")) return;
             dbState.inventory = dbState.inventory.filter(i => i.id !== id);
-            if (navigator.onLine) _supabase.from('inventario').delete().eq('local_id', cUser).eq('id', id).then();
             syncToCloud(); renderAdmin();
         }
         function verFoto(b64) {
@@ -2163,9 +2151,7 @@
         function selectHistorialSector(s) { activeHistorialSector = s; renderPillsHistorial(); renderHistorialDueño(); }
         function renderPillsHistorial() {
             let h = `<div class="pill ${activeHistorialSector==='Boletería'?'active-purple':''}" onclick="selectHistorialSector('Boletería')">🎟️ Boletería</div>`;
-            (dbState.barras||[]).forEach(b => {
-                h += `<div class="pill ${activeHistorialSector===b?'active-cyan':''}" onclick="selectHistorialSector('${b}')">🍸 ${b}</div>`;
-            });
+            (dbState.barras||[]).forEach(b => { h += `<div class="pill ${activeHistorialSector===b?'active-cyan':''}" onclick="selectHistorialSector('${b}')">🍸 ${b}</div>`; });
             document.getElementById('selector-historial-sector').innerHTML = h;
         }
         
@@ -2215,25 +2201,14 @@
             
             let bh = '';
             bh += sectorCardHtml('purple', '🎟️', 'BOLETERÍA', tabs['Boletería']);
-            (dbState.barras||[]).forEach(br => {
-                bh += sectorCardHtml('cyan', '🍸', br.toUpperCase(), tabs[br] || { efe:0, tra:0, qty:0, closed:false });
-            });
+            (dbState.barras||[]).forEach(br => { bh += sectorCardHtml('cyan', '🍸', br.toUpperCase(), tabs[br] || { efe:0, tra:0, qty:0, closed:false }); });
             document.getElementById('admin-boards-container').innerHTML = bh || '<div class="empty-state">Sin sectores configurados.</div>';
             
             renderPillsCarga(); renderPillsHistorial(); renderHistorialDueño();
             
             let eh = '';
             (dbState.inventory||[]).filter(i => i.category === 'entrada').forEach(i => {
-                eh += `<div class="inv-row">
-                    <div style="flex:1; overflow:hidden; padding-right: 10px;">
-                        <div class="inv-name">${i.name}</div>
-                        <div class="inv-price purple">$${fmt(i.price)}</div>
-                    </div>
-                    <div style="display:flex; gap:12px; align-items:center;">
-                        <div class="inv-stock-box"><span>STOCK</span><b>${i.stock}</b></div>
-                        <button class="btn-outline" style="padding: 8px 12px; margin:0; color:var(--neon-purple); border-color:rgba(180,0,255,0.35); width:auto; font-size:0.75rem;" onclick="removeProduct('${i.id}')">🗑️</button>
-                    </div>
-                </div>`;
+                eh += `<div class="inv-row"><div style="flex:1; overflow:hidden; padding-right: 10px;"><div class="inv-name">${i.name}</div><div class="inv-price purple">$${fmt(i.price)}</div></div><div style="display:flex; gap:12px; align-items:center;"><div class="inv-stock-box"><span>STOCK</span><b>${i.stock}</b></div><button class="btn-outline" style="padding: 8px 12px; margin:0; color:var(--neon-purple); border-color:rgba(180,0,255,0.35); width:auto; font-size:0.75rem;" onclick="removeProduct('${i.id}')">🗑️</button></div></div>`;
             });
             document.getElementById('list-entradas').innerHTML = eh || '<div class="empty-state" style="padding:24px"><div class="empty-state-icon">🎫</div><div style="color:var(--text-gray);font-size:0.85rem;font-weight:600;">Sin entradas cargadas</div></div>';
             
@@ -2241,10 +2216,7 @@
             
             let bl = '';
             (dbState.barras||[]).forEach(bn => {
-                bl += `<div class="inv-row">
-                    <span style="color:white;font-family:'Orbitron';font-weight:800;font-size:0.9rem;letter-spacing:1.5px;text-transform:uppercase;">🍹 ${bn}</span>
-                    <button class="btn-outline" style="padding:8px 14px;margin:0;color:var(--neon-red);border-color:rgba(255,45,85,0.3);background:rgba(255,45,85,0.05);width:auto;font-size:0.7rem;font-family:'Orbitron';letter-spacing:1.5px;" onclick="eliminarBarra('${bn}')">ELIMINAR</button>
-                </div>`;
+                bl += `<div class="inv-row"><span style="color:white;font-family:'Orbitron';font-weight:800;font-size:0.9rem;letter-spacing:1.5px;text-transform:uppercase;">🍹 ${bn}</span><button class="btn-outline" style="padding:8px 14px;margin:0;color:var(--neon-red);border-color:rgba(255,45,85,0.3);background:rgba(255,45,85,0.05);width:auto;font-size:0.7rem;font-family:'Orbitron';letter-spacing:1.5px;" onclick="eliminarBarra('${bn}')">ELIMINAR</button></div>`;
             });
             document.getElementById('list-barras').innerHTML = bl || '<div class="empty-state" style="padding:20px"><div class="empty-state-icon">🏗️</div><div style="color:var(--text-gray);font-size:0.85rem;font-weight:600;">No hay barras creadas</div></div>';
         }
@@ -2252,34 +2224,19 @@
         function sectorCardHtml(colorClass, icon, name, data) {
             const total = data.efe + data.tra; const max = Math.max(1, total);
             const pctEfe = Math.round((data.efe / max) * 100); const pctTra = Math.round((data.tra / max) * 100);
-            const isOpen = !data.closed;
-            
-            /* FIX 3: SE ELIMINÓ EL TICKET PROM Y SE AGRANDÓ LA LETRA DE LOS IMPORTES MINI-BAR-LABEL B */
+            const ticketProm = data.qty ? (total / data.qty) : 0; const isOpen = !data.closed;
             return `
             <div class="sector-card ${colorClass}">
                 <div class="sector-header">
-                    <div class="sector-title ${colorClass==='purple'?'neon-purple':'neon-cyan'}">
-                        <span>${icon}</span> ${name}
-                    </div>
-                    <span class="status-text ${isOpen?'open':'closed'}">
-                        <span class="status-led ${isOpen?'open':'closed'}"></span>
-                        ${isOpen ? 'ABIERTO' : 'CERRADO'}
-                    </span>
+                    <div class="sector-title ${colorClass==='purple'?'neon-purple':'neon-cyan'}"><span>${icon}</span> ${name}</div>
+                    <span class="status-text ${isOpen?'open':'closed'}"><span class="status-led ${isOpen?'open':'closed'}"></span>${isOpen ? 'ABIERTO' : 'CERRADO'}</span>
                 </div>
                 <div class="sector-amount">$${fmt(total)}</div>
                 <div class="mini-chart">
-                    <div class="mini-bar-col">
-                        <div class="mini-bar-label"><span>💵 EFECTIVO</span><b class="neon-green">$${fmt(data.efe)}</b></div>
-                        <div class="mini-bar-track"><div class="mini-bar-fill ${colorClass==='purple'?'purple':'cyan'}" style="width:${pctEfe}%"></div></div>
-                    </div>
-                    <div class="mini-bar-col">
-                        <div class="mini-bar-label"><span>🏦 TRANSF</span><b class="neon-cyan">$${fmt(data.tra)}</b></div>
-                        <div class="mini-bar-track"><div class="mini-bar-fill cyan" style="width:${pctTra}%"></div></div>
-                    </div>
+                    <div class="mini-bar-col"><div class="mini-bar-label"><span>💵 EFECTIVO</span><b class="neon-green">$${fmt(data.efe)}</b></div><div class="mini-bar-track"><div class="mini-bar-fill ${colorClass==='purple'?'purple':'cyan'}" style="width:${pctEfe}%"></div></div></div>
+                    <div class="mini-bar-col"><div class="mini-bar-label"><span>🏦 TRANSF</span><b class="neon-cyan">$${fmt(data.tra)}</b></div><div class="mini-bar-track"><div class="mini-bar-fill cyan" style="width:${pctTra}%"></div></div></div>
                 </div>
-                <div class="sector-meta">
-                    <span>Cantidad total de operaciones: <b>${data.qty}</b></span>
-                </div>
+                <div class="sector-meta"><span>Cantidad: <b>${data.qty}</b></span><span>Ticket prom: <b>$${fmt(Math.round(ticketProm))}</b></span></div>
             </div>`;
         }
         
@@ -2290,59 +2247,31 @@
                 const area = l.origin || (l.description?.includes('Barra') ? (dbState.barras?.[0]||'Barra 1') : 'Boletería');
                 if (area !== sel) continue;
                 if (l.type === 'CIERRE') {
-                    h += `<div style="background:linear-gradient(90deg,transparent,rgba(255,215,0,0.12),transparent);border:1.5px dashed rgba(255,215,0,0.25);border-radius:16px;padding:16px;margin:18px 0;text-align:center;">
-                        <span class="font-display neon-gold" style="font-size:0.75rem;letter-spacing:3px;">🔒 CORTE REGISTRADO · ${l.date} ${l.time}</span>
-                    </div>`;
+                    h += `<div style="background:linear-gradient(90deg,transparent,rgba(255,215,0,0.12),transparent);border:1.5px dashed rgba(255,215,0,0.25);border-radius:16px;padding:16px;margin:18px 0;text-align:center;"><span class="font-display neon-gold" style="font-size:0.75rem;letter-spacing:3px;">🔒 CORTE REGISTRADO · ${l.date} ${l.time}</span></div>`;
                     break;
                 }
                 if (l.type === 'VENTA') {
-                    has = true;
-                    const a = parseFloat(l.amount) || 0;
-                    const isBol = area === 'Boletería';
-                    const isTra = l.method === 'TRANSFERENCIA';
+                    has = true; const a = parseFloat(l.amount) || 0;
+                    const isBol = area === 'Boletería'; const isTra = l.method === 'TRANSFERENCIA';
                     if (isTra) secTra += a; else secEfe += a;
                     const foto = l.foto ? `<button class="btn-small-pill" style="margin-top:10px;padding:6px 12px;font-size:0.65rem;border-color:rgba(0,240,255,0.3);color:var(--neon-cyan);background:rgba(0,240,255,0.06);" onclick="verFoto('${l.foto}')">📸 VER FOTO</button>` : '';
-                    h += `<div class="log-row ${isBol?'vip':''}">
-                        <div style="flex:1; display:flex; flex-direction:column; overflow:hidden; padding-right: 12px;">
-                            <div class="log-title text-truncate">${isBol?'🎟️':'🍸'} ${l.description}</div>
-                            <div class="log-meta">
-                                <span class="log-badge ${isTra?'tra':'efe'}">${isTra?'🏦 TRANSF':'💵 EFECTIVO'}</span>
-                                <span>🕐 ${l.time}</span>
-                            </div>
-                            ${foto}
-                        </div>
-                        <div style="font-family:'Orbitron';font-weight:900;font-size:1.2rem;">$${fmt(a)}</div>
-                    </div>`;
+                    h += `<div class="log-row ${isBol?'vip':''}"><div style="flex:1; display:flex; flex-direction:column; overflow:hidden; padding-right: 12px;"><div class="log-title text-truncate">${isBol?'🎟️':'🍸'} ${l.description}</div><div class="log-meta"><span class="log-badge ${isTra?'tra':'efe'}">${isTra?'🏦 TRANSF':'💵 EFECTIVO'}</span><span>🕐 ${l.time}</span></div>${foto}</div><div style="font-family:'Orbitron';font-weight:900;font-size:1.2rem;">$${fmt(a)}</div></div>`;
                 }
             }
-            
             if (has) {
                 const tot = secEfe + secTra;
-                h = `<div style="background:linear-gradient(135deg,rgba(0,240,255,0.08),rgba(180,0,255,0.06));border:1.5px solid rgba(255,255,255,0.08);border-radius:18px;padding:16px;margin-bottom:16px;display:flex;justify-content:space-around;text-align:center;flex-wrap:wrap;gap:12px;">
-                    <div><div style="font-size:0.65rem;color:var(--text-gray);letter-spacing:2px;text-transform:uppercase;font-weight:800;">Efectivo</div><div class="neon-green" style="font-family:'Orbitron';font-weight:900;font-size:1.1rem;">$${fmt(secEfe)}</div></div>
-                    <div><div style="font-size:0.65rem;color:var(--text-gray);letter-spacing:2px;text-transform:uppercase;font-weight:800;">Transf</div><div class="neon-cyan" style="font-family:'Orbitron';font-weight:900;font-size:1.1rem;">$${fmt(secTra)}</div></div>
-                    <div><div style="font-size:0.65rem;color:var(--vip-gold);letter-spacing:2px;text-transform:uppercase;font-weight:800;">Total</div><div class="neon-gold" style="font-family:'Orbitron';font-weight:900;font-size:1.1rem;">$${fmt(tot)}</div></div>
-                </div>` + h;
+                h = `<div style="background:linear-gradient(135deg,rgba(0,240,255,0.08),rgba(180,0,255,0.06));border:1.5px solid rgba(255,255,255,0.08);border-radius:18px;padding:16px;margin-bottom:16px;display:flex;justify-content:space-around;text-align:center;flex-wrap:wrap;gap:12px;"><div><div style="font-size:0.65rem;color:var(--text-gray);letter-spacing:2px;text-transform:uppercase;font-weight:800;">Efectivo</div><div class="neon-green" style="font-family:'Orbitron';font-weight:900;font-size:1.1rem;">$${fmt(secEfe)}</div></div><div><div style="font-size:0.65rem;color:var(--text-gray);letter-spacing:2px;text-transform:uppercase;font-weight:800;">Transf</div><div class="neon-cyan" style="font-family:'Orbitron';font-weight:900;font-size:1.1rem;">$${fmt(secTra)}</div></div><div><div style="font-size:0.65rem;color:var(--vip-gold);letter-spacing:2px;text-transform:uppercase;font-weight:800;">Total</div><div class="neon-gold" style="font-family:'Orbitron';font-weight:900;font-size:1.1rem;">$${fmt(tot)}</div></div></div>` + h;
             }
-            
-            if (!has) {
-                h = `<div class="empty-state">
-                    <div class="empty-state-icon">📭</div>
-                    <div style="color:var(--text-soft);font-family:'Orbitron';font-weight:800;font-size:0.95rem;letter-spacing:2px;">TURNO EN BLANCO</div>
-                    <div style="color:var(--text-dim);font-size:0.8rem;margin-top:6px;">Sin ventas registradas en este sector.</div>
-                </div>` + h;
-            }
+            if (!has) h = `<div class="empty-state"><div class="empty-state-icon">📭</div><div style="color:var(--text-soft);font-family:'Orbitron';font-weight:800;font-size:0.95rem;letter-spacing:2px;">TURNO EN BLANCO</div><div style="color:var(--text-dim);font-size:0.8rem;margin-top:6px;">Sin ventas registradas en este sector.</div></div>` + h;
             document.getElementById('admin-history-container').innerHTML = h;
         }
         
         /* ========== CATÁLOGO CAJA ========== */
         function openCatalogModal() {
             const tipo = currentModule === 'Boletería' ? 'entrada' : 'bebida';
-            const tit = document.getElementById('catalog-title');
-            if (tit) {
-                tit.innerText = tipo === 'entrada' ? '🎟️ ENTRADAS' : `🍸 ${currentBarraId.toUpperCase()}`;
-                tit.className = 'font-display ' + (tipo === 'entrada' ? 'neon-purple' : 'neon-cyan');
-            }
+            document.getElementById('catalog-title').innerText = tipo === 'entrada' ? '🎟️ ENTRADAS' : `🍸 ${currentBarraId.toUpperCase()}`;
+            document.getElementById('catalog-title').className = 'font-display ' + (tipo === 'entrada' ? 'neon-purple' : 'neon-cyan');
+            
             let items = [];
             if (tipo === 'entrada') items = (dbState.inventory||[]).filter(i => i.category === 'entrada');
             else items = (dbState.inventory||[]).filter(i => i.category === 'bebida' && i.barId === currentBarraId);
@@ -2351,83 +2280,33 @@
             if (items.length) {
                 items.forEach(i => {
                     const color = i.category === 'entrada' ? 'grad-text-purple' : 'grad-text-cyan';
-                    h += `<div class="cat-item" onclick="selectProduct('${i.id}')">
-                        <div style="flex:1; overflow:hidden; padding-right:12px;">
-                            <div class="text-truncate" style="font-family:'Orbitron';font-size:0.9rem;font-weight:800;color:white;letter-spacing:0.5px;text-transform:uppercase;">${i.name}</div>
-                            <div class="${color}" style="font-family:'Orbitron';font-size:1.2rem;font-weight:900;margin-top:6px;">$${fmt(i.price)}</div>
-                        </div>
-                        <div class="inv-stock-box"><span>STOCK</span><b>${i.stock}</b></div>
-                    </div>`;
+                    h += `<div class="cat-item" onclick="selectProduct('${i.id}')"><div style="flex:1; overflow:hidden; padding-right:12px;"><div class="text-truncate" style="font-family:'Orbitron';font-size:0.9rem;font-weight:800;color:white;letter-spacing:0.5px;text-transform:uppercase;">${i.name}</div><div class="${color}" style="font-family:'Orbitron';font-size:1.2rem;font-weight:900;margin-top:6px;">$${fmt(i.price)}</div></div><div class="inv-stock-box"><span>STOCK</span><b>${i.stock}</b></div></div>`;
                 });
             } else {
-                const m = tipo === 'entrada' ? 'entradas' : `productos para ${currentBarraId}`;
-                h = `<div class="empty-state"><div class="empty-state-icon">⚠️</div><div style="color:var(--neon-cyan);font-weight:800;font-size:0.9rem;line-height:1.5;">El Director aún no cargó ${m}.</div></div>`;
+                h = `<div class="empty-state"><div class="empty-state-icon">⚠️</div><div style="color:var(--neon-cyan);font-weight:800;font-size:0.9rem;line-height:1.5;">El Director aún no cargó ${tipo === 'entrada' ? 'entradas' : `productos para ${currentBarraId}`}.</div></div>`;
             }
-            const cl = document.getElementById('catalog-list-container');
-            const cm = document.getElementById('catalog-modal');
-            if (cl) cl.innerHTML = h;
-            if (cm) cm.style.display = 'flex';
+            document.getElementById('catalog-list-container').innerHTML = h;
+            document.getElementById('catalog-modal').style.display = 'flex';
         }
-        function closeCatalogModal() {
-            const m = document.getElementById('catalog-modal');
-            if (m) m.style.display = 'none';
-        }
+        function closeCatalogModal() { document.getElementById('catalog-modal').style.display = 'none'; }
         function selectProduct(id) {
-            const p = dbState.inventory.find(i => i.id === id);
-            if (!p) return;
+            const p = dbState.inventory.find(i => i.id === id); if (!p) return;
             selProd = p;
             const icon = p.category === 'entrada' ? '🎟️' : '🍸';
             const color = p.category === 'entrada' ? 'grad-text-purple' : 'grad-text-cyan';
-            const area = document.getElementById('caja-product-area');
-            if (area) {
-                area.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center;background:linear-gradient(135deg,rgba(0,240,255,0.06),rgba(180,0,255,0.04));border:1.5px solid rgba(0,240,255,0.25);border-radius:18px;padding:14px 16px;box-shadow:0 10px 30px rgba(0,0,0,0.35);">
-                    <div style="flex:1; overflow:hidden; padding-right:10px;">
-                        <div class="text-truncate" style="font-family:'Orbitron';color:white;font-weight:800;font-size:0.9rem;letter-spacing:0.5px;text-transform:uppercase;">${icon} ${p.name}</div>
-                        <div style="color:var(--neon-green);font-weight:800;font-size:0.7rem;margin-top:5px;letter-spacing:2px;text-transform:uppercase;">✓ ARTÍCULO SELECCIONADO</div>
-                    </div>
-                    <div style="display:flex;flex-direction:column;align-items:flex-end;gap:8px;">
-                        <span class="${color}" style="font-family:'Orbitron';font-weight:900;font-size:1.2rem;">$${fmt(p.price)}</span>
-                        <button class="btn-small-pill" style="padding:6px 12px;font-size:0.65rem;border-color:rgba(255,45,85,0.3);color:var(--neon-red);background:rgba(255,45,85,0.06);" onclick="clearCalc()">CANCELAR</button>
-                    </div>
-                </div>`;
-            }
+            document.getElementById('caja-product-area').innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center;background:linear-gradient(135deg,rgba(0,240,255,0.06),rgba(180,0,255,0.04));border:1.5px solid rgba(0,240,255,0.25);border-radius:18px;padding:14px 16px;box-shadow:0 10px 30px rgba(0,0,0,0.35);"><div style="flex:1; overflow:hidden; padding-right:10px;"><div class="text-truncate" style="font-family:'Orbitron';color:white;font-weight:800;font-size:0.9rem;letter-spacing:0.5px;text-transform:uppercase;">${icon} ${p.name}</div><div style="color:var(--neon-green);font-weight:800;font-size:0.7rem;margin-top:5px;letter-spacing:2px;text-transform:uppercase;">✓ ARTÍCULO SELECCIONADO</div></div><div style="display:flex;flex-direction:column;align-items:flex-end;gap:8px;"><span class="${color}" style="font-family:'Orbitron';font-weight:900;font-size:1.2rem;">$${fmt(p.price)}</span><button class="btn-small-pill" style="padding:6px 12px;font-size:0.65rem;border-color:rgba(255,45,85,0.3);color:var(--neon-red);background:rgba(255,45,85,0.06);" onclick="clearCalc()">CANCELAR</button></div></div>`;
             closeCatalogModal();
             expr = ''; inputCalc(p.price.toString()); inputCalc('*');
         }
         
         /* ========== CALCULADORA ========== */
         function updateCalcDisplay() {
-            const d = document.getElementById('calc-total');
-            if (!d) return;
-            const len = d.innerText.replace(/[^0-9]/g,'').length;
-            d.style.fontSize = len > 8 ? '2.4rem' : len > 5 ? '3.4rem' : 'clamp(2.8rem,13vw,5rem)';
+            const d = document.getElementById('calc-total'); if (!d) return;
+            const len = d.innerText.replace(/[^0-9]/g,'').length; d.style.fontSize = len > 8 ? '2.4rem' : len > 5 ? '3.4rem' : 'clamp(2.8rem,13vw,5rem)';
         }
-        function inputCalc(v) {
-            expr += v;
-            const h = document.getElementById('calc-hist');
-            const t = document.getElementById('calc-total');
-            if (h) h.innerText = expr.replace(/\*/g, ' × ');
-            try { if (t) t.innerText = fmt(eval(expr) || 0); } catch(e){}
-            updateCalcDisplay();
-        }
-        function deleteCalc() {
-            expr = expr.slice(0, -1);
-            const h = document.getElementById('calc-hist');
-            const t = document.getElementById('calc-total');
-            if (h) h.innerText = expr.replace(/\*/g, ' × ');
-            try { if (t) t.innerText = expr ? fmt(eval(expr) || 0) : '0'; } catch(e){}
-            updateCalcDisplay();
-        }
-        function clearCalc() {
-            expr = ''; selProd = null;
-            const h = document.getElementById('calc-hist');
-            const t = document.getElementById('calc-total');
-            const a = document.getElementById('caja-product-area');
-            if (h) h.innerText = '';
-            if (t) t.innerText = '0';
-            if (a) a.innerHTML = `<button class="btn-select-catalog" onclick="openCatalogModal()">🛒 SELECCIONAR ARTÍCULO</button>`;
-            updateCalcDisplay();
-        }
+        function inputCalc(v) { expr += v; document.getElementById('calc-hist').innerText = expr.replace(/\*/g, ' × '); try { document.getElementById('calc-total').innerText = fmt(eval(expr) || 0); } catch(e){} updateCalcDisplay(); }
+        function deleteCalc() { expr = expr.slice(0, -1); document.getElementById('calc-hist').innerText = expr.replace(/\*/g, ' × '); try { document.getElementById('calc-total').innerText = expr ? fmt(eval(expr) || 0) : '0'; } catch(e){} updateCalcDisplay(); }
+        function clearCalc() { expr = ''; selProd = null; document.getElementById('calc-hist').innerText = ''; document.getElementById('calc-total').innerText = '0'; document.getElementById('caja-product-area').innerHTML = `<button class="btn-select-catalog" onclick="openCatalogModal()">🛒 SELECCIONAR ARTÍCULO</button>`; updateCalcDisplay(); }
         
         /* ========== VENTAS / QR INTELIGENTE / FIX FOTO ========== */
         function abrirCamaraTransferencia() {
@@ -2440,8 +2319,7 @@
         function processTransferWithPhoto(e) {
             const file = e.target.files?.[0];
             if (!file) {
-                if (confirm("⚠️ ¿Registrar transferencia SIN comprobante fotográfico?"))
-                    generarVentaQR('TRANSFERENCIA', null);
+                if (confirm("⚠️ ¿Registrar transferencia SIN comprobante fotográfico?")) generarVentaQR('TRANSFERENCIA', null);
                 return;
             }
             const h = document.getElementById('calc-hist');
@@ -2452,7 +2330,7 @@
                 const img = new Image();
                 img.onload = () => {
                     const c = document.createElement('canvas');
-                    const sc = Math.min(1, 600 / img.width); 
+                    const sc = Math.min(1, 600 / img.width); // Redimensionado a 600px para no pesar
                     c.width = img.width * sc; c.height = img.height * sc;
                     c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
                     if (h) h.innerText = '';
@@ -2468,323 +2346,147 @@
             if (!val || val <= 0) return showPremiumAlert("MONTO INVÁLIDO", "Ingresá un monto válido.");
             
             if (!selProd) {
-                if (currentModule === 'Boletería') {
-                    selProd = { id: 'GEN-ENT', name: 'ENTRADA GENERAL', category: 'entrada' };
-                } else {
-                    return showPremiumAlert("SIN ARTÍCULO", "Seleccioná un producto primero.");
-                }
+                if (currentModule === 'Boletería') { selProd = { id: 'GEN-ENT', name: 'ENTRADA GENERAL', category: 'entrada' }; } 
+                else { return showPremiumAlert("SIN ARTÍCULO", "Seleccioná un producto primero."); }
             }
             
-            let qty = 1;
-            if (expr.includes('*')) {
-                const ps = expr.split('*');
-                const n = parseFloat(ps[ps.length - 1]);
-                if (!isNaN(n) && n > 0) qty = n;
-            }
-            
+            let qty = 1; if (expr.includes('*')) { const ps = expr.split('*'); const n = parseFloat(ps[ps.length - 1]); if (!isNaN(n) && n > 0) qty = n; }
             if (selProd.id !== 'GEN-ENT') {
                 const idx = dbState.inventory.findIndex(i => i.id === selProd.id);
-                if (idx >= 0) {
-                    dbState.inventory[idx].stock = Math.max(0, (dbState.inventory[idx].stock||0) - qty);
-                    dbState.inventory[idx].synced = false;
-                }
+                if (idx >= 0) dbState.inventory[idx].stock = Math.max(0, (dbState.inventory[idx].stock||0) - qty);
             }
             
             const tid = 'VIP-' + Date.now().toString().slice(-7);
             
-            // Eliminar acentos para que QRCode.js no crashee
             const safeOrigin = currentBarraId.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
             const safeProduct = selProd.name.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
             
             const ticketData = { id: tid, qty: qty, product: safeProduct, category: selProd.category, amount: val, origin: safeOrigin, method: method, time: getTimeStr(), date: getDateStr() };
+            dbState.tickets.push({ ...ticketData, status: 'ACTIVO' });
+            dbState.logs.unshift({ type: 'VENTA', method, amount: val, date: getDateStr(), time: getTimeStr(), description: `${qty}x ${selProd.name}`, origin: currentBarraId, foto, ticketId: tid });
             
-            dbState.tickets.push({ ...ticketData, status: 'ACTIVO', synced: false });
+            syncToCloud(); 
             
-            let logId = uuidv4();
-            dbState.logs.unshift({
-                id: logId, type: 'VENTA', method, amount: val,
-                date: getDateStr(), time: getTimeStr(),
-                description: `${qty}x ${selProd.name}`,
-                origin: currentBarraId, foto, ticketId: tid, synced: false
+            document.getElementById('qr-amount').innerText = `$${fmt(val)} · ${method}`;
+            document.getElementById('qr-product-info').innerText = `${qty}x ${selProd.name.toUpperCase()} · ${currentBarraId.toUpperCase()}`;
+            document.getElementById('qr-container').innerHTML = '';
+            
+            new QRCode(document.getElementById('qr-container'), {
+                text: JSON.stringify(ticketData), 
+                width: 230, height: 230,
+                colorDark: '#005566', colorLight: '#ffffff',
+                correctLevel: QRCode.CorrectLevel.L
             });
-            
-            syncToCloud();
-            
-            const qrPayload = JSON.stringify(ticketData);
-            const qa = document.getElementById('qr-amount');
-            const qi = document.getElementById('qr-product-info');
-            const qc = document.getElementById('qr-container');
-            const mq = document.getElementById('modal-qr');
-            if (qa) qa.innerText = `$${fmt(val)} · ${method}`;
-            if (qi) qi.innerText = `${qty}x ${selProd.name.toUpperCase()} · ${currentBarraId.toUpperCase()}`;
-            if (qc) {
-                qc.innerHTML = '';
-                new QRCode(qc, {
-                    text: qrPayload, 
-                    width: 230, height: 230,
-                    colorDark: '#005566', colorLight: '#ffffff',
-                    correctLevel: QRCode.CorrectLevel.L 
-                });
-            }
-            if (mq) mq.style.display = 'flex';
+            document.getElementById('modal-qr').style.display = 'flex';
         }
         
         /* ========== CIERRE TURNO ========== */
         function closeRegister() {
             let efe = 0, tra = 0, qty = 0;
-            for (const l of dbState.logs) {
-                if (l.origin !== currentBarraId) continue;
-                if (l.type === 'CIERRE') break;
-                if (l.type === 'VENTA') {
-                    const a = parseFloat(l.amount) || 0;
-                    if (l.method === 'TRANSFERENCIA') tra += a; else efe += a;
-                    qty++;
-                }
-            }
+            for (const l of dbState.logs) { if (l.origin !== currentBarraId) continue; if (l.type === 'CIERRE') break; if (l.type === 'VENTA') { const a = parseFloat(l.amount) || 0; if (l.method === 'TRANSFERENCIA') tra += a; else efe += a; qty++; } }
             const tot = efe + tra;
-            if (!confirm(`🔒 CERRAR TURNO DE ${currentBarraId.toUpperCase()}?\n\n💵 Efectivo: $${fmt(efe)}\n🏦 Transferencia: $${fmt(tra)}\n💰 TOTAL: $${fmt(tot)}\n🎫 Operaciones: ${qty}\n\nSe envía reporte al Director y la caja queda en $0.`)) return;
-            
-            let logId = uuidv4();
-            dbState.logs.unshift({
-                id: logId, type: 'CIERRE', method: 'SISTEMA', amount: 0,
-                date: getDateStr(), time: getTimeStr(),
-                description: `Cierre ${currentBarraId} · T:$${fmt(tot)}`,
-                origin: currentBarraId, synced: false
-            });
+            if (!confirm(`🔒 CERRAR TURNO DE ${currentBarraId.toUpperCase()}?\n\n💵 Efectivo: $${fmt(efe)}\n🏦 Transferencia: $${fmt(tra)}\n💰 TOTAL: $${fmt(tot)}\n🎫 Operaciones: ${qty}`)) return;
+            dbState.logs.unshift({ type: 'CIERRE', method: 'SISTEMA', amount: 0, date: getDateStr(), time: getTimeStr(), description: `Cierre ${currentBarraId} · T:$${fmt(tot)}`, origin: currentBarraId });
             syncToCloud();
-            
-            const msg = `🔒 *CIERRE DE TURNO: ${currentBarraId.toUpperCase()}*\n*Franquicia:* ${cUser}\n*Fecha:* ${getDateStr()} - ${getTimeStr()}\n\n💵 *Efectivo:* $${fmt(efe)}\n🏦 *Transferencia:* $${fmt(tra)}\n🎫 *Cantidad:* ${qty}\n\n💰 *TOTAL RECAUDADO:* $${fmt(tot)}`;
-            if (navigator.onLine) {
-                window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(msg)}`, '_blank');
-            } else {
-                showPremiumAlert("CIERRE OFFLINE", "Turno cerrado. El WhatsApp de aviso no se puede enviar sin conexión a internet.");
-            }
+            if (navigator.onLine) { window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(`🔒 *CIERRE DE TURNO: ${currentBarraId.toUpperCase()}*\n*Franquicia:* ${cUser}\n*Fecha:* ${getDateStr()} - ${getTimeStr()}\n\n💵 *Efectivo:* $${fmt(efe)}\n🏦 *Transferencia:* $${fmt(tra)}\n🎫 *Cantidad:* ${qty}\n\n💰 *TOTAL RECAUDADO:* $${fmt(tot)}`)}`, '_blank'); } 
+            else { showPremiumAlert("CIERRE OFFLINE", "Turno cerrado. El WhatsApp no se puede enviar sin conexión a internet."); }
             go('view-roles');
         }
         
         /* ========== MIS VENTAS ========== */
         function abrirMisVentas() {
             let h = '', list = [];
-            for (const l of dbState.logs) {
-                if (l.origin !== currentBarraId) continue;
-                if (l.type === 'CIERRE') break;
-                if (l.type === 'VENTA') list.push(l);
-            }
+            for (const l of dbState.logs) { if (l.origin !== currentBarraId) continue; if (l.type === 'CIERRE') break; if (l.type === 'VENTA') list.push(l); }
             if (list.length) {
                 list.forEach(l => {
-                    const a = parseFloat(l.amount) || 0;
-                    const col = currentBarraId === 'Boletería' ? 'grad-text-purple' : 'grad-text-cyan';
-                    const icon = l.method === 'TRANSFERENCIA' ? '🏦' : '💵';
-                    h += `<div class="cat-item" style="cursor:default;">
-                        <div style="flex:1; overflow:hidden; padding-right:12px;">
-                            <div class="text-truncate" style="font-family:'Orbitron';font-size:0.85rem;font-weight:800;color:white;letter-spacing:0.5px;text-transform:uppercase;">${l.description}</div>
-                            <div style="font-size:0.75rem;color:var(--text-gray);margin-top:5px;font-weight:600;">${icon} ${l.method} · ${l.time}</div>
-                        </div>
-                        <div class="${col}" style="font-family:'Orbitron';font-size:1.1rem;font-weight:900;">$${fmt(a)}</div>
-                    </div>`;
+                    const a = parseFloat(l.amount) || 0; const col = currentBarraId === 'Boletería' ? 'grad-text-purple' : 'grad-text-cyan'; const icon = l.method === 'TRANSFERENCIA' ? '🏦' : '💵';
+                    h += `<div class="cat-item" style="cursor:default;"><div style="flex:1; overflow:hidden; padding-right:12px;"><div class="text-truncate" style="font-family:'Orbitron';font-size:0.85rem;font-weight:800;color:white;letter-spacing:0.5px;text-transform:uppercase;">${l.description}</div><div style="font-size:0.75rem;color:var(--text-gray);margin-top:5px;font-weight:600;">${icon} ${l.method} · ${l.time}</div></div><div class="${col}" style="font-family:'Orbitron';font-size:1.1rem;font-weight:900;">$${fmt(a)}</div></div>`;
                 });
-            } else {
-                h = `<div class="empty-state"><div class="empty-state-icon">📭</div><div style="color:var(--text-soft);font-family:'Orbitron';font-weight:800;font-size:0.9rem;letter-spacing:2px;">SIN VENTAS</div><div style="color:var(--text-dim);font-size:0.8rem;margin-top:6px;">Tu turno está en blanco.</div></div>`;
-            }
-            const mc = document.getElementById('mis-ventas-container');
-            const mm = document.getElementById('modal-mis-ventas');
-            if (mc) mc.innerHTML = h;
-            if (mm) mm.style.display = 'flex';
+            } else { h = `<div class="empty-state"><div class="empty-state-icon">📭</div><div style="color:var(--text-soft);font-family:'Orbitron';font-weight:800;font-size:0.9rem;letter-spacing:2px;">SIN VENTAS</div><div style="color:var(--text-dim);font-size:0.8rem;margin-top:6px;">Tu turno está en blanco.</div></div>`; }
+            document.getElementById('mis-ventas-container').innerHTML = h; document.getElementById('modal-mis-ventas').style.display = 'flex';
         }
         
         /* ============================================================
-           🆕 ESCÁNER DE PUERTA (QUEMA QR EN 1 USO Y FIX YA USADO)
+           🆕 ESCÁNER DE PUERTA Y BARRA
            ============================================================ */
-        function iniciarEscaner() {
-            if (html5QrcodeScanner) return;
-            html5QrcodeScanner = new Html5Qrcode("reader");
-            html5QrcodeScanner.start(
-                { facingMode: "environment" },
-                { fps: 12, qrbox: { width: 260, height: 260 } },
-                decodedText => validarTicketPuerta(decodedText),
-                () => {}
-            ).catch(err => {
-                showPremiumAlert("ERROR CÁMARA", "No se pudo activar. Aceptá los permisos.");
-                html5QrcodeScanner = null;
-            });
-        }
-        function detenerEscaner() {
-            if (html5QrcodeScanner) {
-                html5QrcodeScanner.stop().then(() => { html5QrcodeScanner = null; go('view-roles'); });
-            } else go('view-roles');
-        }
-        
-        /* FIX 1: LÓGICA DE ESCANEO SEGURA QUE LEE REAL DE LA BASE DE DATOS */
-        function parseTicketData(raw) {
-            let qrObj;
-            try { qrObj = raw.startsWith('{') ? JSON.parse(raw) : { id: raw.trim() }; } catch(e){ qrObj = {id: raw.trim()}; }
-            
-            // Priorizamos buscar en la base de datos local (que tiene el "status" real)
-            let data = dbState.tickets.find(t => t.id === qrObj.id);
-            
-            // Si por alguna razón el ticket es de otro celu offline y aún no subió, confiamos en el JSON del QR
-            if (!data && qrObj.product) {
-                data = qrObj;
-                data.status = 'ACTIVO'; // Asumimos activo si acaba de ser leído por un QR válido y no existe en DB
-            }
-            return data;
-        }
+        function iniciarEscaner() { if (html5QrcodeScanner) return; html5QrcodeScanner = new Html5Qrcode("reader"); html5QrcodeScanner.start({ facingMode: "environment" }, { fps: 12, qrbox: { width: 260, height: 260 } }, decodedText => validarTicketPuerta(decodedText), () => {}).catch(err => { showPremiumAlert("ERROR CÁMARA", "Aceptá los permisos."); html5QrcodeScanner = null; }); }
+        function detenerEscaner() { if (html5QrcodeScanner) { html5QrcodeScanner.stop().then(() => { html5QrcodeScanner = null; go('view-roles'); }); } else go('view-roles'); }
+        function parseTicketData(raw) { try { if (raw.trim().startsWith('{')) return JSON.parse(raw); return dbState.tickets.find(x => x.id === raw.trim()) || null; } catch(e) { return dbState.tickets.find(x => x.id === raw.trim()) || null; } }
         
         function validarTicketPuerta(raw) {
-            html5QrcodeScanner.pause();
-            const data = parseTicketData(raw);
-            const box = document.getElementById('alerta-content');
-            if (!box) return;
-            
-            if (!data || !data.id) {
-                box.innerHTML = `<div style="font-size:4.5rem;line-height:1;">⛔</div><h2 class="font-display neon-red" style="font-size:1.8rem;margin:15px 0;letter-spacing:2px;">QR INVÁLIDO</h2><p style="color:var(--text-soft);font-size:0.95rem;margin-bottom:24px;font-weight:600;line-height:1.5;">Este código no pertenece al sistema.</p><button class="btn btn-purple" onclick="cerrarAlerta()">VOLVER A ESCANEAR</button>`;
-                box.style.borderColor = 'rgba(255,45,85,0.4)';
-            } else if (data.status !== 'ACTIVO') {
-                box.innerHTML = `<div style="font-size:4.5rem;line-height:1;">🔥</div><h2 class="font-display neon-red" style="font-size:1.6rem;margin:15px 0;letter-spacing:2px;">QR YA USADO</h2><p style="color:var(--text-soft);font-size:0.9rem;margin-bottom:10px;font-weight:600;">Este código fue <b>QUEMADO</b> el:</p><p style="font-family:'Orbitron';color:var(--neon-red);font-size:1rem;font-weight:900;margin-bottom:24px;">${data.date || 'Recientemente'} ${data.time || ''}</p><p style="color:var(--text-gray);font-size:0.8rem;margin-bottom:24px;">Cada QR vale por <b>1 SOLO INGRESO</b>. Imposible reutilizar.</p><button class="btn btn-purple" onclick="cerrarAlerta()">VOLVER A ESCANEAR</button>`;
-                box.style.borderColor = 'rgba(255,45,85,0.4)';
-            } else if (data.category !== 'entrada') {
-                box.innerHTML = `<div style="font-size:4.5rem;line-height:1;">🍸</div><h2 class="font-display neon-cyan" style="font-size:1.5rem;margin:15px 0;letter-spacing:2px;">NO ES ENTRADA</h2><p style="color:var(--text-soft);font-size:0.95rem;margin-bottom:10px;font-weight:600;">Este QR es para retirar en <b class="neon-cyan">${data.origin}</b>:</p><div class="entregar-box" style="margin:15px 0;"><div class="entregar-label">☞ PRODUCTO</div><div class="entregar-producto">${data.product}</div><div class="entregar-cantidad">${data.qty} UNIDAD${data.qty>1?'ES':''}</div></div><p style="color:var(--text-gray);font-size:0.8rem;margin-bottom:24px;">Mandalo a la barra correspondiente.</p><button class="btn btn-cyan" onclick="cerrarAlerta()">VOLVER A ESCANEAR</button>`;
-                box.style.borderColor = 'rgba(0,240,255,0.4)';
-            } else {
-                // QUEMAR TICKET
-                const idx = dbState.tickets.findIndex(t => t.id === data.id);
-                if (idx >= 0) {
-                    dbState.tickets[idx].status = 'USADO';
-                    dbState.tickets[idx].synced = false;
-                } else {
-                    // Si no estaba en DB local pero pasó validación, lo agregamos como USADO
-                    dbState.tickets.push({ ...data, status: 'USADO', synced: false });
-                }
-                syncToCloud();
-                
-                box.innerHTML = `<div style="font-size:4.5rem;line-height:1;">✅</div><h2 class="font-display" style="color:var(--neon-green);font-weight:900;font-size:2rem;margin:15px 0;text-shadow:0 0 25px rgba(0,255,148,0.5);">¡INGRESO VÁLIDO!</h2><p style="font-family:'Orbitron';color:white;font-size:1.1rem;font-weight:900;margin-bottom:8px;">${data.product.toUpperCase()}</p><p style="color:var(--text-gray);font-size:0.85rem;margin-bottom:10px;">${data.origin} · ${data.method}</p><div class="quemado-badge">🔥 QR QUEMADO · NO VUELVE A SERVIR</div><button class="btn btn-cyan" style="margin-top:20px;" onclick="cerrarAlerta()">SIGUIENTE CLIENTE</button>`;
-                box.style.borderColor = 'rgba(0,255,148,0.4)';
-            }
-            const m = document.getElementById('modal-alerta');
-            if (m) m.style.display = 'flex';
+            html5QrcodeScanner.pause(); const data = parseTicketData(raw); const box = document.getElementById('alerta-content'); if (!box) return;
+            if (!data) { box.innerHTML = `<div style="font-size:4.5rem;line-height:1;">⛔</div><h2 class="font-display neon-red" style="font-size:1.8rem;margin:15px 0;">QR INVÁLIDO</h2><button class="btn btn-purple" onclick="cerrarAlerta()">VOLVER A ESCANEAR</button>`; box.style.borderColor = 'rgba(255,45,85,0.4)'; } 
+            else if (data.status !== 'ACTIVO') { box.innerHTML = `<div style="font-size:4.5rem;line-height:1;">🔥</div><h2 class="font-display neon-red" style="font-size:1.6rem;margin:15px 0;">QR YA USADO</h2><button class="btn btn-purple" onclick="cerrarAlerta()">VOLVER A ESCANEAR</button>`; box.style.borderColor = 'rgba(255,45,85,0.4)'; } 
+            else if (data.category !== 'entrada') { box.innerHTML = `<div style="font-size:4.5rem;line-height:1;">🍸</div><h2 class="font-display neon-cyan" style="font-size:1.5rem;margin:15px 0;">NO ES ENTRADA</h2><p style="color:var(--text-soft);font-size:0.95rem;">Retirar en <b class="neon-cyan">${data.origin}</b>:</p><button class="btn btn-cyan" onclick="cerrarAlerta()">VOLVER A ESCANEAR</button>`; box.style.borderColor = 'rgba(0,240,255,0.4)'; } 
+            else { const idx = dbState.tickets.findIndex(t => t.id === data.id); if (idx >= 0) dbState.tickets[idx].status = 'USADO'; syncToCloud(); box.innerHTML = `<div style="font-size:4.5rem;line-height:1;">✅</div><h2 class="font-display" style="color:var(--neon-green);font-weight:900;font-size:2rem;margin:15px 0;">¡INGRESO VÁLIDO!</h2><p style="font-family:'Orbitron';color:white;font-size:1.1rem;font-weight:900;">${data.product.toUpperCase()}</p><button class="btn btn-cyan" style="margin-top:20px;" onclick="cerrarAlerta()">SIGUIENTE CLIENTE</button>`; box.style.borderColor = 'rgba(0,255,148,0.4)'; }
+            document.getElementById('modal-alerta').style.display = 'flex';
         }
         
-        /* ============================================================
-           🆕 ESCÁNER INTELIGENTE DE BARRA / ENTREGAS
-           ============================================================ */
-        function iniciarEscanerBarra() {
-            if (html5QrBarra) return;
-            html5QrBarra = new Html5Qrcode("reader-barra");
-            html5QrBarra.start(
-                { facingMode: "environment" },
-                { fps: 12, qrbox: { width: 280, height: 280 } },
-                decodedText => validarTicketBarra(decodedText),
-                () => {}
-            ).catch(err => {
-                showPremiumAlert("ERROR CÁMARA", "No se pudo activar la cámara de entregas. Aceptá los permisos.");
-                html5QrBarra = null;
-            });
-        }
-        
-        function detenerEscanerBarra() {
-            if (html5QrBarra) {
-                html5QrBarra.stop().then(() => { html5QrBarra = null; go('view-roles'); });
-            } else go('view-roles');
-        }
+        function iniciarEscanerBarra() { if (html5QrBarra) return; html5QrBarra = new Html5Qrcode("reader-barra"); html5QrBarra.start({ facingMode: "environment" }, { fps: 12, qrbox: { width: 280, height: 280 } }, decodedText => validarTicketBarra(decodedText), () => {}).catch(err => { showPremiumAlert("ERROR CÁMARA", "Aceptá los permisos."); html5QrBarra = null; }); }
+        function detenerEscanerBarra() { if (html5QrBarra) { html5QrBarra.stop().then(() => { html5QrBarra = null; go('view-roles'); }); } else go('view-roles'); }
         
         function validarTicketBarra(raw) {
-            html5QrBarra.pause();
-            const data = parseTicketData(raw);
-            const box = document.getElementById('alerta-content');
-            if (!box) return;
-            
-            if (!data || !data.id) {
-                box.innerHTML = `<div class="scanner-big-icon neon-red">⛔</div><h2 class="font-display neon-red" style="font-size:1.8rem;margin:10px 0 15px;letter-spacing:2px;">CÓDIGO INVÁLIDO</h2><p style="color:var(--text-soft);font-size:1rem;margin-bottom:24px;font-weight:600;line-height:1.5;">Este QR no fue emitido por tu sistema VIP CLUB.</p><button class="btn btn-purple" onclick="cerrarAlertaBarra()">VOLVER A ESCANEAR</button>`;
-                box.style.borderColor = 'rgba(255,45,85,0.4)';
-            }
-            else if (data.status !== 'ACTIVO') {
-                box.innerHTML = `<div class="scanner-big-icon neon-red">🔥</div><h2 class="font-display neon-red" style="font-size:1.6rem;margin:10px 0 15px;letter-spacing:2px;">¡QR YA QUEMADO!</h2><p style="color:var(--text-soft);font-size:0.95rem;margin-bottom:10px;font-weight:600;">Este producto <b>YA FUE ENTREGADO</b> el:</p><p style="font-family:'Orbitron';color:var(--neon-red);font-size:1.1rem;font-weight:900;margin-bottom:10px;">${data.date || 'Recientemente'} ${data.time || ''}</p><div class="entregar-box" style="background:rgba(255,45,85,0.06);border-color:rgba(255,45,85,0.3);box-shadow:none;margin:15px 0;"><div class="entregar-label" style="color:var(--neon-red);">☞ YA SE ENTREGÓ</div><div class="entregar-producto" style="font-size:1.3rem;">${data.product}</div><div class="entregar-cantidad" style="margin-top:10px;">${data.qty} UNIDAD${data.qty>1?'ES':''}</div></div><p style="color:var(--text-gray);font-size:0.8rem;margin-bottom:24px;line-height:1.5;">Cada QR se <b>AUTODESTRUYE</b> después de escanearse. <b>NUNCA</b> entregues dos veces lo mismo.</p><button class="btn btn-purple" onclick="cerrarAlertaBarra()">VOLVER A ESCANEAR</button>`;
-                box.style.borderColor = 'rgba(255,45,85,0.4)';
-            }
-            else if (data.category === 'entrada') {
-                box.innerHTML = `<div class="scanner-big-icon neon-purple">🎟️</div><h2 class="font-display neon-purple" style="font-size:1.6rem;margin:10px 0 15px;letter-spacing:2px;">ES UNA ENTRADA</h2><p style="color:var(--text-soft);font-size:0.95rem;margin-bottom:10px;font-weight:600;">Este QR es para <b>INGRESAR</b>, no para retirar productos:</p><div class="entregar-box" style="background:rgba(180,0,255,0.06);border-color:rgba(180,0,255,0.3);box-shadow:none;margin:15px 0;"><div class="entregar-label" style="color:var(--neon-purple);">☞ TIPO</div><div class="entregar-producto" style="font-size:1.4rem;">${data.product}</div></div><p style="color:var(--text-gray);font-size:0.8rem;margin-bottom:24px;">Mandalo a PUERTA para que lo validen ahí.</p><button class="btn btn-purple" onclick="cerrarAlertaBarra()">VOLVER A ESCANEAR</button>`;
-                box.style.borderColor = 'rgba(180,0,255,0.4)';
-            }
-            else {
-                // QUEMAR TICKET EN LA BARRA
-                const idx = dbState.tickets.findIndex(t => t.id === data.id);
-                if (idx >= 0) {
-                    dbState.tickets[idx].status = 'ENTREGADO';
-                    dbState.tickets[idx].synced = false;
-                } else {
-                    dbState.tickets.push({ ...data, status: 'ENTREGADO', synced: false });
-                }
-                syncToCloud();
-                
-                try {
-                    const voz = new SpeechSynthesisUtterance();
-                    voz.text = `ATENCIÓN. ENTREGAR: ${data.qty} ${data.product.toUpperCase()}. YA QUEDÓ MARCADO COMO ENTREGADO.`;
-                    voz.lang = 'es-AR'; voz.volume = 1; voz.rate = 0.95;
-                    window.speechSynthesis.cancel();
-                    window.speechSynthesis.speak(voz);
-                } catch(e){}
-                
-                box.innerHTML = `<div class="scanner-big-icon neon-green">✅</div><h2 class="font-display" style="color:var(--neon-green);font-weight:900;font-size:1.7rem;margin:10px 0 5px;letter-spacing:2px;text-shadow:0 0 25px rgba(0,255,148,0.5);">¡CÓDIGO VÁLIDO!</h2><p style="font-family:'Orbitron';color:var(--text-gray);font-size:0.7rem;letter-spacing:2px;text-transform:uppercase;margin-bottom:5px;">${data.origin} · ${data.method} · ${data.time}</p><div class="entregar-box"><div class="entregar-label">☞ ENTREGAR AHORA</div><div class="entregar-producto">${data.product}</div><div class="entregar-cantidad">${data.qty} UNIDAD${data.qty>1?'ES':''}</div></div><div class="ticket-meta-grid"><div class="ticket-meta-item"><span>MONTO</span><b>$${fmt(data.amount)}</b></div><div class="ticket-meta-item"><span>SECTOR</span><b>${data.origin}</b></div><div class="ticket-meta-item"><span>PAGO</span><b>${data.method}</b></div><div class="ticket-meta-item"><span>TICKET</span><b style="font-size:0.8rem;">${data.id}</b></div></div><div class="quemado-badge">🔥 QR QUEMADO · NO VUELVE A SERVIR</div><button class="btn btn-cyan" style="margin-top:20px;" onclick="cerrarAlertaBarra()">SIGUIENTE CLIENTE</button>`;
-                box.style.borderColor = 'rgba(0,255,148,0.4)';
-            }
-            
-            const m = document.getElementById('modal-alerta');
-            if (m) m.style.display = 'flex';
+            html5QrBarra.pause(); const data = parseTicketData(raw); const box = document.getElementById('alerta-content'); if (!box) return;
+            if (!data) { box.innerHTML = `<div class="scanner-big-icon neon-red">⛔</div><h2 class="font-display neon-red" style="font-size:1.8rem;">CÓDIGO INVÁLIDO</h2><button class="btn btn-purple" onclick="cerrarAlertaBarra()">VOLVER A ESCANEAR</button>`; box.style.borderColor = 'rgba(255,45,85,0.4)'; }
+            else if (data.status !== 'ACTIVO') { box.innerHTML = `<div class="scanner-big-icon neon-red">🔥</div><h2 class="font-display neon-red" style="font-size:1.6rem;">¡QR YA QUEMADO!</h2><button class="btn btn-purple" onclick="cerrarAlertaBarra()">VOLVER A ESCANEAR</button>`; box.style.borderColor = 'rgba(255,45,85,0.4)'; }
+            else if (data.category === 'entrada') { box.innerHTML = `<div class="scanner-big-icon neon-purple">🎟️</div><h2 class="font-display neon-purple" style="font-size:1.6rem;">ES UNA ENTRADA</h2><button class="btn btn-purple" onclick="cerrarAlertaBarra()">VOLVER A ESCANEAR</button>`; box.style.borderColor = 'rgba(180,0,255,0.4)'; }
+            else { const idx = dbState.tickets.findIndex(t => t.id === data.id); if (idx >= 0) dbState.tickets[idx].status = 'ENTREGADO'; syncToCloud(); try { const voz = new SpeechSynthesisUtterance(); voz.text = `ENTREGAR: ${data.qty} ${data.product.toUpperCase()}`; voz.lang = 'es-AR'; window.speechSynthesis.cancel(); window.speechSynthesis.speak(voz); } catch(e){} box.innerHTML = `<div class="scanner-big-icon neon-green">✅</div><h2 class="font-display" style="color:var(--neon-green);">¡CÓDIGO VÁLIDO!</h2><div class="entregar-box"><div class="entregar-producto">${data.product}</div><div class="entregar-cantidad">${data.qty} UNIDADES</div></div><button class="btn btn-cyan" style="margin-top:20px;" onclick="cerrarAlertaBarra()">SIGUIENTE CLIENTE</button>`; box.style.borderColor = 'rgba(0,255,148,0.4)'; }
+            document.getElementById('modal-alerta').style.display = 'flex';
         }
         
-        function cerrarAlerta() {
-            const m = document.getElementById('modal-alerta');
-            if (m) m.style.display = 'none';
-            if (html5QrcodeScanner) html5QrcodeScanner.resume();
-        }
+        function cerrarAlerta() { document.getElementById('modal-alerta').style.display = 'none'; if (html5QrcodeScanner) html5QrcodeScanner.resume(); }
+        function cerrarAlertaBarra() { document.getElementById('modal-alerta').style.display = 'none'; if (html5QrBarra) html5QrBarra.resume(); }
         
-        function cerrarAlertaBarra() {
-            const m = document.getElementById('modal-alerta');
-            if (m) m.style.display = 'none';
-            if (html5QrBarra) html5QrBarra.resume();
-        }
-        
-        /* ========== MIGRACIÓN AL MOTOR SUPABASE CON TABLAS SEPARADAS + OFFLINE ========== */
+        /* ========== MODO OFFLINE / SYNC ========== */
         async function syncToCloud() {
             if (!cUser) return;
-            
-            // 1. Guardado Local Inmediato
-            saveLocalDB();
-            renderAdmin();
-
-            // 2. Comprobar red
-            if (!navigator.onLine) return;
-
+            saveLocalDB(); renderAdmin();
+            if (!navigator.onLine) return; // Frena si no hay internet
+            const payload = { logs: dbState.logs, tickets: dbState.tickets, inventory: dbState.inventory, barras: dbState.barras };
             try {
-                // Sincronizar Inventario a tabla 'inventario'
-                for (let i of dbState.inventory) {
-                    if (!i.synced) {
-                        await _supabase.from('inventario').upsert({ id: i.id, local_id: cUser, name: i.name, price: i.price, stock: i.stock, category: i.category, bar_id: i.barId }, { onConflict: 'id' });
-                        i.synced = true;
-                    }
+                const { data } = await _supabase.from('usuarios').select('app_data').eq('local', cUser).single();
+                if (data && data.app_data) {
+                    const oldData = typeof data.app_data === 'string' ? JSON.parse(data.app_data) : data.app_data;
+                    if (oldData.expires_at) payload.expires_at = oldData.expires_at;
+                    if (oldData.sub_status) payload.sub_status = oldData.sub_status;
+                }
+                await _supabase.from('usuarios').update({ app_data: payload }).eq('local', cUser);
+            } catch(e) { console.log("Guardado offline ok."); }
+        }
+
+        /* ========== COMPARTIR QR ========== */
+        async function compartirQR() {
+            try {
+                const qrBox = document.getElementById('qr-container');
+                const canvas = qrBox.querySelector('canvas');
+                const img = qrBox.querySelector('img');
+                
+                let dataUrl = '';
+                if (canvas && canvas.style.display !== 'none') {
+                    dataUrl = canvas.toDataURL('image/png');
+                } else if (img && img.src) {
+                    dataUrl = img.src;
                 }
                 
-                // Sincronizar Tickets a tabla 'tickets'
-                for (let t of dbState.tickets) {
-                    if (!t.synced || t.status !== t.lastSyncStatus) {
-                        await _supabase.from('tickets').upsert({ id: t.id, local_id: cUser, qty: t.qty, product: t.product, category: t.category, amount: t.amount, origin: t.origin, method: t.method, status: t.status, date: t.date, time: t.time }, { onConflict: 'id' });
-                        t.synced = true;
-                        t.lastSyncStatus = t.status;
-                    }
+                if (!dataUrl) {
+                    return showPremiumAlert("ERROR", "No se pudo generar la imagen para compartir.");
                 }
-                
-                // Sincronizar Logs a tabla 'logs'
-                for (let l of dbState.logs) {
-                    if (!l.synced) {
-                        await _supabase.from('logs').upsert({ id: l.id, local_id: cUser, type: l.type, method: l.method, amount: l.amount, description: l.description, origin: l.origin, foto_base64: l.foto, ticket_id: l.ticketId, date: l.date, time: l.time }, { onConflict: 'id' });
-                        l.synced = true;
-                    }
+
+                const res = await fetch(dataUrl);
+                const blob = await res.blob();
+                const file = new File([blob], `VIP-Ticket-${Date.now()}.png`, { type: "image/png" });
+
+                if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                    await navigator.share({
+                        title: 'Ticket VIP CLUB',
+                        text: 'Acá tenés tu ticket de acceso/consumición.',
+                        files: [file]
+                    });
+                } else {
+                    showPremiumAlert("COMPARTIR", "Tu dispositivo o navegador no soporta compartir esta imagen directamente. Podés hacerle una captura de pantalla.");
                 }
-                
-                // Guardar la bandera 'synced: true' de vuelta en el celular
-                saveLocalDB();
-            } catch(e) {
-                console.log("Error sincronizando. Operación almacenada localmente en la cola.");
+            } catch (err) {
+                console.log("Compartir cancelado o error: ", err);
             }
         }
 
