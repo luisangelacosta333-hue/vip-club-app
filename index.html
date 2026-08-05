@@ -1926,6 +1926,9 @@
                     return; 
                 }
                 
+                // --- NUEVO: GUARDAMOS EL VENCIMIENTO PARA EL CONTADOR ---
+                window.vencimiento = cd.expires_at;
+
                 cUser = data.local; cPin = pin; cAdminPin = data.admin_pin || "0000";
                 dbState.logs      = cd.logs      || [];
                 dbState.tickets   = cd.tickets   || [];
@@ -2138,7 +2141,21 @@
         }
         
         function renderAdmin() {
-            document.getElementById('admin-header-title').innerText = cUser ? `👑 ${cUser.toUpperCase()}` : '👑 PANEL DUEÑO';
+            const titleEl = document.getElementById('admin-header-title');
+            titleEl.innerText = cUser ? `👑 ${cUser.toUpperCase()}` : '👑 PANEL DUEÑO';
+
+            // --- NUEVO: Calcular días restantes visualmente ---
+            if (window.vencimiento) {
+                const diasRestantes = Math.ceil((window.vencimiento - Date.now()) / (1000 * 60 * 60 * 24));
+                
+                if (diasRestantes <= 3) {
+                    titleEl.innerHTML += ` <span style="background:var(--neon-red); color:white; padding:2px 8px; border-radius:8px; font-size:0.6rem; margin-left:10px; vertical-align: middle;">⚠️ ${diasRestantes} DÍAS</span>`;
+                } else {
+                    titleEl.innerHTML += ` <span style="background:rgba(0,240,255,0.1); border:1px solid var(--neon-cyan); color:var(--neon-cyan); padding:2px 8px; border-radius:8px; font-size:0.6rem; margin-left:10px; vertical-align: middle;">⏱️ ${diasRestantes} DÍAS</span>`;
+                }
+            }
+            // --------------------------------------------------
+
             const { tabs, gEfe, gTra, gQty } = computeBoards();
             const total = gEfe + gTra;
             
