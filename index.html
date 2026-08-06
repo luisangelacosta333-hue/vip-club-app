@@ -1316,7 +1316,7 @@
     <div class="bg-animated"></div>
     <div class="particles"></div>
     
-    <!-- FIX: Se le quitó el environment para forzar en todos los celulares la apertura de la cámara -->
+    <!-- FIX CÁMARA OBLIGATORIA -->
     <input type="file" id="foto-input-camara" accept="image/*" capture style="display:none;" onchange="processTransferWithPhoto(event)">
     
     <!-- ==============================================
@@ -1680,14 +1680,6 @@
                 <button class="btn btn-cyan" style="margin-bottom: 0;" onclick="uploadProduct('bebida')">✓ GUARDAR BEBIDA</button>
                 <div id="list-bebidas" style="margin-top: 22px;"></div>
             </div>
-            
-            <!-- HISTORIAL -->
-            <h3 class="section-title" style="background: var(--grad-gold); -webkit-background-clip: text; background-clip: text; color: transparent;">📜 AUDITORÍA DE VENTAS</h3>
-            <div class="card card-gold" style="margin-bottom: 24px;">
-                <p style="color: var(--text-gray); font-size: 0.85rem; margin: 0 0 14px; font-weight: 600;">Filtrá por sector para ver el detalle de cada operación:</p>
-                <div class="pills-wrapper-edge" id="selector-historial-sector"></div>
-                <div id="admin-history-container" style="margin-top: 10px;"></div>
-            </div>
 
             <!-- === NUEVO: BANNER WHATSAPP (PUERTA) === -->
             <h3 class="section-title neon-green">📲 CREADOR DE BANNER (PUERTA)</h3>
@@ -1702,6 +1694,14 @@
                     </div>
                     <button class="btn-outline" style="color: var(--neon-green); border-color: rgba(0,255,148,0.4); background: rgba(0,255,148,0.05);" onclick="descargarQRBanner()">⬇️ DESCARGAR IMAGEN HD</button>
                 </div>
+            </div>
+            
+            <!-- HISTORIAL -->
+            <h3 class="section-title" style="background: var(--grad-gold); -webkit-background-clip: text; background-clip: text; color: transparent;">📜 AUDITORÍA DE VENTAS</h3>
+            <div class="card card-gold">
+                <p style="color: var(--text-gray); font-size: 0.85rem; margin: 0 0 14px; font-weight: 600;">Filtrá por sector para ver el detalle de cada operación:</p>
+                <div class="pills-wrapper-edge" id="selector-historial-sector"></div>
+                <div id="admin-history-container" style="margin-top: 10px;"></div>
             </div>
             
             <div style="height: 20px;"></div>
@@ -1812,20 +1812,28 @@
     </div>
 
     <!-- ==============================================
-         JAVASCRIPT
+         JAVASCRIPT CON CONEXIÓN SQL Y STORAGE DE FOTOS
          ============================================== -->
     <script>
+        // Utilidad para crear IDs únicos (UUID v4)
+        function generateUUID() {
+            return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+                var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+                return v.toString(16);
+            });
+        }
+
         // === MOTOR OFFLINE - EVENTOS DE RED ===
         window.addEventListener('online', () => {
             document.getElementById('offline-banner').style.display = 'none';
             if (cUser) {
-                showPremiumAlert("🌐 CONEXIÓN RESTAURADA", "Sincronizando todas las ventas offline con la Bóveda del dueño...", "success");
+                showPremiumAlert("🌐 CONEXIÓN RESTAURADA", "Sincronizando todas las ventas con tu base de datos SQL...", "success");
                 syncToCloud();
             }
         });
         window.addEventListener('offline', () => {
             document.getElementById('offline-banner').style.display = 'block';
-            showPremiumAlert("📡 SIN INTERNET", "Modo offline activado. Podés seguir facturando, todo se guardará en el celular.", "error");
+            showPremiumAlert("📡 SIN INTERNET", "Modo offline activado. Podés seguir facturando en caché.", "error");
         });
 
         function loadLocalDB() {
@@ -1867,7 +1875,7 @@
         function leerFanPageAudio() {
             window.speechSynthesis.cancel();
             const s = new SpeechSynthesisUtterance();
-            s.text = "¡ATENCIÓN DUEÑO DE BOLICHE! Dejá de perder plata hoy mismo con VIP CLUB Ultra Premium de Energy Software. ¿Sabés cuánta plata se te escapa por noche por papelitos falsos, chicas que se equivocan en la barra o cajas que no cierran bien? Nosotros lo solucionamos TODO desde tu celular. Mirá lo que hacemos por vos: PRIMERO: cada venta genera un CÓDIGO QR INTELIGENTE que se QUEMA SOLITO en un solo uso. ¡Imposible de falsificar! No más colas en puerta, no más gente que entra sin pagar. SEGUNDO: ESCÁNER EXCLUSIVO PARA TUS BARRAS. La chica escanea el QR del cliente y el sistema le dice EN VOZ ALTA y en PANTALLA GIGANTE: ENTREGAR 2 FERNET, 3 CERVEZAS, 1 VODKA. CERO ERRORES. CERO QUEJAS. CERO MERCANCÍA QUE DESAPARECE. TERCERO: controlás HASTA 5 BARRAS en simultáneo, cada una con su propio stock, su propia caja y su propio corte de turno. CUARTO: BÓVEDA DIGITAL con foto obligatoria de cada transferencia. No más 'no me llegó la transferencia'. QUINTO: PANEL DE DUEÑO en tiempo real. Estés donde estás, ves cuánto entró en efectivo, cuánto en transferencia, qué se vendió más y quién cerró bien. Y lo mejor de todo: NO NECESITÁS COMPRAR NINGUNA MÁQUINA CARA. Funciona con los celulares que ya tienen tus empleados. SEXTO Y LA JOYA DE LA CORONA: El sistema incluye un creador de Banners. Lo imprimís, lo ponés en la fila, los chicos lo escanean y te abren WhatsApp automáticamente pidiendo su entrada. Armás una base de datos gigante a costo cero y la fila vuela. VIP CLUB: tu boliche, al nivel de DIOS. ¡Probalo ya!";
+            s.text = "¡ATENCIÓN DUEÑO DE BOLICHE! Dejá de perder plata hoy mismo con VIP CLUB Ultra Premium de Energy Software. ¿Sabés cuánta plata se te escapa por noche por papelitos falsos o chicas que se equivocan en la barra? Nosotros lo solucionamos TODO desde tu celular. Mirá lo que hacemos por vos: PRIMERO: cada venta genera un CÓDIGO QR INTELIGENTE que se QUEMA SOLITO en un solo uso. ¡Imposible de falsificar! SEGUNDO: ESCÁNER EXCLUSIVO PARA TUS BARRAS. La chica escanea el QR del cliente y el sistema le dice EN VOZ ALTA: ENTREGAR 2 FERNET. CERO ERRORES. TERCERO: controlás HASTA 5 BARRAS en simultáneo. CUARTO: BÓVEDA DIGITAL con foto obligatoria de cada transferencia en la nube de Supabase. QUINTO: PANEL DE DUEÑO en tiempo real, conectado a bases de datos relacionales SQL para máxima velocidad y seguridad. SEXTO Y LA JOYA DE LA CORONA: El sistema incluye un creador de Banners. Lo imprimís, lo ponés en la fila, los chicos lo escanean y te abren WhatsApp automáticamente pidiendo su entrada. Armás una base de datos gigante gratis y la fila vuela. VIP CLUB: tu boliche, al nivel de DIOS. ¡Probalo ya!";
             s.lang = 'es-AR'; 
             s.rate = 1.0; 
             s.pitch = 1.05;
@@ -1894,18 +1902,20 @@
                 if (data && data.length) return showPremiumAlert("ERROR", "Ese Boliche ya se encuentra registrado en el sistema.");
                 
                 const now = Date.now();
-                const expiresAt = now + (15 * 24 * 60 * 60 * 1000); // 15 días en milisegundos
+                const expiresAt = now + (15 * 24 * 60 * 60 * 1000);
 
-                const appDataInicial = { 
-                    logs: [], tickets: [], inventory: [], barras: ["Barra 1"],
-                    sub_status: 'TRIAL', expires_at: expiresAt
-                };
+                // Solo guardamos info de suscripción en app_data, el resto a SQL
+                const appDataInicial = { sub_status: 'TRIAL', expires_at: expiresAt };
 
                 const { error } = await _supabase.from('usuarios').insert([{
                     local, pin, admin_pin: adm, app_data: appDataInicial
                 }]);
                 
                 if (error) throw error;
+
+                // INSERCIÓN DE BARRA 1 POR DEFECTO EN LA TABLA RELACIONAL SQL
+                await _supabase.from('barras').insert([{ local_id: local, nombre: "Barra 1" }]);
+
                 showPremiumAlert("¡FRANQUICIA CREADA!", "Tus 15 DÍAS GRATIS fueron activados. Ya podés ingresar al sistema.", "success");
                 document.getElementById('login-local').value = local;
                 document.getElementById('login-pin').value = pin;
@@ -1946,10 +1956,24 @@
                 window.vencimiento = cd.expires_at;
 
                 cUser = data.local; cPin = pin; cAdminPin = data.admin_pin || "0000";
-                dbState.logs      = cd.logs      || [];
-                dbState.tickets   = cd.tickets   || [];
-                dbState.inventory = cd.inventory || [];
-                dbState.barras    = cd.barras    || ["Barra 1"];
+                
+                // MÁGIA: LEEMOS DIRECTAMENTE DESDE TUS TABLAS SQL SEPARADAS
+                try {
+                    const [resBarras, resInv, resTickets, resLogs] = await Promise.all([
+                        _supabase.from('barras').select('nombre').eq('local_id', cUser),
+                        _supabase.from('inventario').select('*').eq('local_id', cUser),
+                        _supabase.from('tickets').select('*').eq('local_id', cUser),
+                        _supabase.from('logs').select('*').eq('local_id', cUser).order('created_at', { ascending: false }).limit(300)
+                    ]);
+                    
+                    dbState.barras = resBarras.data && resBarras.data.length ? resBarras.data.map(b => b.nombre) : ["Barra 1"];
+                    dbState.inventory = (resInv.data || []).map(i => ({ id: i.id, name: i.name, price: Number(i.price), stock: Number(i.stock), category: i.category, barId: i.bar_id }));
+                    dbState.tickets = (resTickets.data || []).map(t => ({ id: t.id, qty: Number(t.qty), product: t.product, category: t.category, amount: Number(t.amount), origin: t.origin, method: t.method, status: t.status, date: t.date, time: t.time }));
+                    dbState.logs = (resLogs.data || []).map(l => ({ id: l.id, type: l.type, method: l.method, amount: Number(l.amount), description: l.description, origin: l.origin, foto: l.foto_base64, ticketId: l.ticket_id, date: l.date, time: l.time }));
+                } catch(e) {
+                    console.log("Aviso: Cargando fallback por si las tablas están vacías");
+                    dbState.barras = ["Barra 1"]; dbState.inventory = []; dbState.tickets = []; dbState.logs = [];
+                }
 
                 localStorage.setItem('vip_cUser', cUser);
                 localStorage.setItem('vip_cPin', cPin);
@@ -2035,7 +2059,7 @@
             } else showPremiumAlert("ACCESO DENEGADO", "PIN Director incorrecto.");
         }
         
-        /* ========== BARRAS Y PRODUCTOS ========== */
+        /* ========== BARRAS Y PRODUCTOS CON SQL ========== */
         function crearBarra() {
             const n = (document.getElementById('add-nombre-barra').value||'').trim();
             if (!n) return;
@@ -2045,13 +2069,19 @@
             dbState.barras.push(n); syncToCloud(); renderAdmin();
             document.getElementById('add-nombre-barra').value = '';
         }
-        function eliminarBarra(n) {
+        async function eliminarBarra(n) {
             if (!confirm(`¿Eliminar "${n}"? Se borrarán sus productos.`)) return;
             dbState.barras = dbState.barras.filter(b => b !== n);
             dbState.inventory = dbState.inventory.filter(i => !(i.category === 'bebida' && i.barId === n));
             if (activeBarraCarga === n) activeBarraCarga = dbState.barras[0] || '';
             if (activeHistorialSector === n) activeHistorialSector = 'Boletería';
             syncToCloud(); renderAdmin();
+            if(navigator.onLine) {
+                try { 
+                    await _supabase.from('barras').delete().eq('local_id', cUser).eq('nombre', n); 
+                    await _supabase.from('inventario').delete().eq('local_id', cUser).eq('bar_id', n); 
+                } catch(e){}
+            }
         }
         
         function selectBarraCarga(b) { activeBarraCarga = b; renderPillsCarga(); renderListaBebidasCarga(); }
@@ -2104,10 +2134,13 @@
             syncToCloud(); renderAdmin();
             document.getElementById(`add-name-${cat}`).value = ''; document.getElementById(`add-price-${cat}`).value = ''; document.getElementById(`add-stock-${cat}`).value = '';
         }
-        function removeProduct(id) {
+        async function removeProduct(id) {
             if (!confirm("¿Eliminar producto?")) return;
             dbState.inventory = dbState.inventory.filter(i => i.id !== id);
             syncToCloud(); renderAdmin();
+            if(navigator.onLine) {
+                try { await _supabase.from('inventario').delete().eq('id', id); } catch(e){}
+            }
         }
         function verFoto(b64) {
             document.getElementById('receipt-img').src = b64;
@@ -2160,6 +2193,7 @@
             const titleEl = document.getElementById('admin-header-title');
             titleEl.innerText = cUser ? `👑 ${cUser.toUpperCase()}` : '👑 PANEL DUEÑO';
 
+            // --- CONTADOR DE DÍAS RESTANTES ---
             if (window.vencimiento) {
                 const diasRestantes = Math.ceil((window.vencimiento - Date.now()) / (1000 * 60 * 60 * 24));
                 
@@ -2340,7 +2374,9 @@
             
             const ticketData = { id: tid, qty: qty, product: safeProduct, category: selProd.category, amount: val, origin: safeOrigin, method: method, time: getTimeStr(), date: getDateStr() };
             dbState.tickets.push({ ...ticketData, status: 'ACTIVO' });
-            dbState.logs.unshift({ type: 'VENTA', method, amount: val, date: getDateStr(), time: getTimeStr(), description: `${qty}x ${selProd.name}`, origin: currentBarraId, foto, ticketId: tid });
+            
+            const logId = generateUUID();
+            dbState.logs.unshift({ id: logId, type: 'VENTA', method, amount: val, date: getDateStr(), time: getTimeStr(), description: `${qty}x ${selProd.name}`, origin: currentBarraId, foto, ticketId: tid });
             
             syncToCloud(); 
             
@@ -2358,7 +2394,9 @@
             for (const l of dbState.logs) { if (l.origin !== currentBarraId) continue; if (l.type === 'CIERRE') break; if (l.type === 'VENTA') { const a = parseFloat(l.amount) || 0; if (l.method === 'TRANSFERENCIA') tra += a; else efe += a; qty++; } }
             const tot = efe + tra;
             if (!confirm(`🔒 CERRAR TURNO DE ${currentBarraId.toUpperCase()}?\n\n💵 Efectivo: $${fmt(efe)}\n🏦 Transferencia: $${fmt(tra)}\n💰 TOTAL: $${fmt(tot)}\n🎫 Operaciones: ${qty}`)) return;
-            dbState.logs.unshift({ type: 'CIERRE', method: 'SISTEMA', amount: 0, date: getDateStr(), time: getTimeStr(), description: `Cierre ${currentBarraId} · T:$${fmt(tot)}`, origin: currentBarraId });
+            
+            const logId = generateUUID();
+            dbState.logs.unshift({ id: logId, type: 'CIERRE', method: 'SISTEMA', amount: 0, date: getDateStr(), time: getTimeStr(), description: `Cierre ${currentBarraId} · T:$${fmt(tot)}`, origin: currentBarraId });
             syncToCloud();
             if (navigator.onLine) { window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(`🔒 *CIERRE DE TURNO: ${currentBarraId.toUpperCase()}*\n*Franquicia:* ${cUser}\n*Fecha:* ${getDateStr()} - ${getTimeStr()}\n\n💵 *Efectivo:* $${fmt(efe)}\n🏦 *Transferencia:* $${fmt(tra)}\n🎫 *Cantidad:* ${qty}\n\n💰 *TOTAL RECAUDADO:* $${fmt(tot)}`)}`, '_blank'); } 
             else { showPremiumAlert("CIERRE OFFLINE", "Turno cerrado. El WhatsApp no se puede enviar sin conexión a internet."); }
@@ -2433,20 +2471,68 @@
         function cerrarAlerta() { document.getElementById('modal-alerta').style.display = 'none'; if (html5QrcodeScanner) html5QrcodeScanner.resume(); }
         function cerrarAlertaBarra() { document.getElementById('modal-alerta').style.display = 'none'; if (html5QrBarra) html5QrBarra.resume(); }
         
-        /* ========== MODO OFFLINE / SYNC ========== */
+        /* ========== MODO OFFLINE, STORAGE Y SYNC SQL (MÁGIA RELACIONAL) ========== */
+        
+        // Sube foto a Storage y devuelve el link público
+        async function uploadFotoToSupabase(base64Str) {
+            try {
+                const base64Data = base64Str.split(',')[1];
+                const byteCharacters = atob(base64Data);
+                const byteNumbers = new Array(byteCharacters.length);
+                for (let i = 0; i < byteCharacters.length; i++) byteNumbers[i] = byteCharacters.charCodeAt(i);
+                const byteArray = new Uint8Array(byteNumbers);
+                const blob = new Blob([byteArray], {type: 'image/jpeg'});
+                
+                const fileName = `${cUser.replace(/\s+/g, '')}/FOTO-${Date.now()}-${Math.floor(Math.random()*1000)}.jpg`;
+                const { data, error } = await _supabase.storage.from('comprobantes').upload(fileName, blob);
+                if (error) return base64Str; 
+                const { data: publicUrlData } = _supabase.storage.from('comprobantes').getPublicUrl(fileName);
+                return publicUrlData.publicUrl; 
+            } catch(e) { return base64Str; }
+        }
+
         async function syncToCloud() {
             if (!cUser) return;
             saveLocalDB(); renderAdmin();
             if (!navigator.onLine) return; 
-            const payload = { logs: dbState.logs, tickets: dbState.tickets, inventory: dbState.inventory, barras: dbState.barras };
+
             try {
+                // 1. Subir a Storage y limpiar Base64
+                for (let l of dbState.logs) {
+                    if (l.foto && l.foto.startsWith('data:image')) {
+                         l.foto = await uploadFotoToSupabase(l.foto);
+                         saveLocalDB(); 
+                    }
+                }
+
+                // 2. Preparar inyección a tablas SQL Separadas
+                const invPayload = dbState.inventory.map(i => ({ id: i.id, local_id: cUser, name: i.name, price: i.price, stock: i.stock, category: i.category, bar_id: i.barId }));
+                const tktPayload = dbState.tickets.map(t => ({ id: t.id, local_id: cUser, qty: t.qty, product: t.product, category: t.category, amount: t.amount, origin: t.origin, method: t.method, status: t.status, date: t.date, time: t.time }));
+                const logPayload = dbState.logs.map(l => ({ id: l.id, local_id: cUser, type: l.type, method: l.method, amount: l.amount, description: l.description, origin: l.origin, foto_base64: l.foto, ticket_id: l.ticketId, date: l.date, time: l.time }));
+
+                // 3. Ejecutar UPSERT a SQL
+                if (invPayload.length) await _supabase.from('inventario').upsert(invPayload);
+                if (tktPayload.length) await _supabase.from('tickets').upsert(tktPayload);
+                if (logPayload.length) await _supabase.from('logs').upsert(logPayload);
+
+                // 4. Sincronizar Barras
+                const { data: extBarras } = await _supabase.from('barras').select('nombre').eq('local_id', cUser);
+                const nombresActuales = extBarras ? extBarras.map(b=>b.nombre) : [];
+                const nuevasBarras = dbState.barras.filter(b => !nombresActuales.includes(b));
+                if(nuevasBarras.length > 0) {
+                    await _supabase.from('barras').insert(nuevasBarras.map(b => ({ local_id: cUser, nombre: b })));
+                }
+
+                // 5. Mantener viva la info de la suscripción
                 const { data } = await _supabase.from('usuarios').select('app_data').eq('local', cUser).single();
+                let payload = {};
                 if (data && data.app_data) {
                     const oldData = typeof data.app_data === 'string' ? JSON.parse(data.app_data) : data.app_data;
                     if (oldData.expires_at) payload.expires_at = oldData.expires_at;
                     if (oldData.sub_status) payload.sub_status = oldData.sub_status;
                 }
                 await _supabase.from('usuarios').update({ app_data: payload }).eq('local', cUser);
+
             } catch(e) { console.log("Guardado offline ok."); }
         }
 
@@ -2473,7 +2559,7 @@
                 if (navigator.canShare && navigator.canShare({ files: [file] })) {
                     await navigator.share({
                         title: 'Pase VIP CLUB',
-                        // === NUEVO TEXTO DE WHATSAPP ===
+                        // === TEXTO ESTRATÉGICO WHATSAPP ===
                         text: '✨ ¡Acá tenés tu Pase VIP para esta noche! 🥂 Mostrale este código al portero desde tu pantalla (acordate que es de un solo uso). ¡Que disfrutes la fiesta!',
                         files: [file]
                     });
@@ -2561,3 +2647,4 @@
     </script>
 </body>
 </html>
+
