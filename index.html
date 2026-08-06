@@ -1695,9 +1695,8 @@
                 <input type="number" id="banner-wa-number" class="input-lux" placeholder="Ej: 5491123456789">
                 <button class="btn" style="background: linear-gradient(135deg, #00ff94 0%, #00b8d4 100%); color: #001018; margin-bottom: 14px;" onclick="generarQRBanner()">🛠️ CREAR QR PARA IMPRENTA</button>
 
-                <!-- FIX QUIRÚRGICO DE ESTILOS APLICADO AL CONTENEDOR -->
                 <div id="banner-qr-box" style="display:none; text-align:center; padding: 20px 0;">
-                    <div style="background: white; padding: 20px; border-radius: 24px; display: inline-block; margin-bottom: 15px; box-shadow: 0 15px 40px rgba(0,255,148,0.2), 0 0 0 4px rgba(0,255,148,0.1); width: 100%; max-width: 320px;">
+                    <div id="banner-qr-wrapper" style="background: white; padding: 20px; border-radius: 24px; display: inline-block; margin-bottom: 15px; box-shadow: 0 15px 40px rgba(0,255,148,0.2), 0 0 0 4px rgba(0,255,148,0.1); width: 100%; max-width: 320px;">
                         <div id="banner-qr-canvas" style="display:flex; justify-content:center;"></div>
                     </div>
                     <button class="btn-outline" style="color: var(--neon-green); border-color: rgba(0,255,148,0.4); background: rgba(0,255,148,0.05);" onclick="descargarQRBanner()">⬇️ DESCARGAR IMAGEN HD</button>
@@ -2586,15 +2585,14 @@
             const num = (document.getElementById('banner-wa-number').value || '').trim();
             if(!num) return showPremiumAlert("DATOS FALTANTES", "Ingresá el número de WhatsApp del boliche primero.");
             
-            const link = `https://wa.me/${num}?text=Hola,%20quiero%20mi%20entrada`;
+            const link = `https://wa.me/${num}?text=${encodeURIComponent('Hola, quiero mi entrada')}`;
             const container = document.getElementById('banner-qr-canvas');
             container.innerHTML = '';
             
-            // FIX QUIRÚRGICO: GENERAMOS EL QR GIGANTE PARA LA IMPRENTA (800x800)
             new QRCode(container, {
                 text: link,
-                width: 800,
-                height: 800,
+                width: 512,
+                height: 512,
                 colorDark: '#000000',
                 colorLight: '#ffffff',
                 correctLevel: QRCode.CorrectLevel.H
@@ -2603,33 +2601,29 @@
             document.getElementById('banner-qr-box').style.display = 'block';
         }
 
-        // FIX QUIRÚRGICO: DESCARGA NATIVA COMPATIBLE CON MÓVILES (PWA)
         async function descargarQRBanner() {
-            const container = document.getElementById('banner-qr-canvas');
-            const canvas = container.querySelector('canvas');
-            const img = container.querySelector('img');
-            
-            let dataUrl = '';
-            if (canvas && canvas.style.display !== 'none') dataUrl = canvas.toDataURL('image/png');
-            else if (img && img.src) dataUrl = img.src;
-            
-            if(!dataUrl) return showPremiumAlert("ERROR", "No se pudo generar la imagen del Banner.");
+            const wrapper = document.getElementById('banner-qr-wrapper');
+            if(!wrapper) return showPremiumAlert("ERROR", "No se encontró el contenedor del QR.");
             
             try {
-                // Convertimos la imagen gigante a un archivo real (Blob)
+                // Captura el div con fondo blanco (id="banner-qr-wrapper")
+                const canvas = await html2canvas(wrapper, {
+                    backgroundColor: '#ffffff', 
+                    scale: 2 
+                });
+
+                const dataUrl = canvas.toDataURL('image/png');
                 const res = await fetch(dataUrl);
                 const blob = await res.blob();
                 const file = new File([blob], `VIP-Banner-Lona-${Date.now()}.png`, { type: "image/png" });
 
-                // Usamos el menú nativo del celular para compartir/guardar (Esto soluciona el bloqueo de PWA)
                 if (navigator.canShare && navigator.canShare({ files: [file] })) {
                     await navigator.share({
-                        title: 'Banner HD para Lona',
-                        text: 'Acá tenés el código QR en Alta Definición para enviar a la imprenta.',
+                        title: 'Banner HD',
+                        text: 'Acá tenés el código QR en Alta Definición, con los márgenes blancos correctos para la imprenta.',
                         files: [file]
                     });
                 } else {
-                    // Si está en compu, usamos la descarga tradicional
                     const a = document.createElement('a');
                     a.href = dataUrl;
                     a.download = `VIP-Banner-Lona-${Date.now()}.png`;
@@ -2638,7 +2632,7 @@
                     document.body.removeChild(a);
                 }
             } catch(e) {
-                showPremiumAlert("ERROR", "Falló la descarga. Intentá desde otro navegador.");
+                showPremiumAlert("ERROR", "Falló la descarga.");
             }
         }
 
