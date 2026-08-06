@@ -1934,7 +1934,7 @@
             let pin   = (document.getElementById('login-pin').value||'').trim();
             if (!local || !pin) return showPremiumAlert("DATOS FALTANTES", "Ingresá sucursal y PIN.");
 
-            // FIX: CARGAMOS LA BÓVEDA LOCAL PRIMERO SIEMPRE (Protección contra borrado fantasma)
+            // FIX: Cargar base de datos local primero para no sobreescribir con vacío
             loadLocalDB();
 
             if (!navigator.onLine) {
@@ -1951,7 +1951,7 @@
             }
             
             try {
-                const { data, error } = await _supabase.from('usuarios').select('*').eq('local', local).eq('pin', pin).maybeSingle();
+                const { data, error } = await _supabase.from('usuarios').select('*').eq('local', local).eq('pin', pin).single();
                 if (error || !data) return showPremiumAlert("ACCESO DENEGADO", "Credenciales inválidas. Verificá tus datos.");
                 
                 const cd = typeof data.app_data === 'string' ? JSON.parse(data.app_data) : data.app_data;
@@ -1975,57 +1975,30 @@
                         _supabase.from('logs').select('*').eq('local_id', cUser).order('created_at', { ascending: false }).limit(300)
                     ]);
                     
-                    // FIX: Fusión Segura. Solo agregamos datos de Supabase que no tengamos, sin pisar la memoria.
-                    if (resBarras.data && resBarras.data.length > 0) {
-                        dbState.barras = [...new Set([...(dbState.barras||[]), ...resBarras.data.map(b => b.nombre)])];
-                    } else if (!dbState.barras || dbState.barras.length === 0) {
-                        dbState.barras = ["Barra 1"];
-                    }
-                    
-                    if (resInv.data && resInv.data.length > 0) {
-                        const localIds = new Set((dbState.inventory||[]).map(i => i.id));
-                        resInv.data.forEach(i => {
-                            if(!localIds.has(i.id)) {
-                                if(!dbState.inventory) dbState.inventory = [];
-                                dbState.inventory.push({ id: i.id, name: i.name, price: Number(i.price), stock: Number(i.stock), category: i.category, barId: i.bar_id || i.barId });
-                            }
-                        });
-                    }
-                    
-                    if (resTickets.data && resTickets.data.length > 0) {
-                        const localTIds = new Set((dbState.tickets||[]).map(t => t.id));
-                        resTickets.data.forEach(t => {
-                            if(!localTIds.has(t.id)) {
-                                if(!dbState.tickets) dbState.tickets = [];
-                                dbState.tickets.push({ id: t.id, qty: Number(t.qty), product: t.product, category: t.category, amount: Number(t.amount), origin: t.origin, method: t.method, status: t.status, date: t.date, time: t.time });
-                            }
-                        });
-                    }
-                    
-                    if (resLogs.data && resLogs.data.length > 0) {
-                        const localLIds = new Set((dbState.logs||[]).map(l => l.id));
-                        resLogs.data.forEach(l => {
-                            if(!localLIds.has(l.id)) {
-                                if(!dbState.logs) dbState.logs = [];
-                                dbState.logs.push({ id: l.id, type: l.type, method: l.method, amount: Number(l.amount), description: l.description, origin: l.origin, foto: l.foto_base64, ticketId: l.ticket_id || l.ticketId, date: l.date, time: l.time });
-                            }
-                        });
-                        dbState.logs.sort((a,b) => new Date(b.date+' '+b.time) - new Date(a.date+' '+a.time));
-                    }
+                    // FIX: Si la nube trae datos, los guardamos. Si viene vacía (por falla o latencia), respetamos lo que ya estaba en el celular.
+                    if (resBarras.data && resBarras.data.length > 0) dbState.barras = resBarras.data.map(b => b.nombre);
+                    else if (!dbState.barras || dbState.barras.length === 0) dbState.barras = ["Barra 1"];
+
+                    if (resInv.data && resInv.data.length > 0) dbState.inventory = resInv.data.map(i => ({ id: i.id, name: i.name, price: Number(i.price), stock: Number(i.stock), category: i.category, barId: i.bar_id }));
+
+                    if (resTickets.data && resTickets.data.length > 0) dbState.tickets = resTickets.data.map(t => ({ id: t.id, qty: Number(t.qty), product: t.product, category: t.category, amount: Number(t.amount), origin: t.origin, method: t.method, status: t.status, date: t.date, time: t.time }));
+
+                    // FIX: Corregido el mapeo de l.ticket_id
+                    if (resLogs.data && resLogs.data.length > 0) dbState.logs = resLogs.data.map(l => ({ id: l.id, type: l.type, method: l.method, amount: Number(l.amount), description: l.description, origin: l.origin, foto: l.foto_base64, ticketId: l.ticket_id, date: l.date, time: l.time }));
 
                 } catch(e) {
-                    console.log("Aviso: Error bajando de Supabase, se mantiene memoria del celular intacta.");
+                    console.log("Aviso: Mantenemos la base de datos local intacta por error en la nube.");
                 }
 
                 localStorage.setItem('vip_cUser', cUser);
                 localStorage.setItem('vip_cPin', cPin);
                 localStorage.setItem('vip_cAdminPin', cAdminPin);
-                saveLocalDB();
+                saveLocalDB(); // Ahora guarda lo local fusionado con la nube (o lo local intacto)
                 
                 document.getElementById('login-pin').value = '';
                 go('view-roles');
                 renderAdmin();
-                
+                syncToCloud(); // Sube lo que estuviera local a la nube
             } catch (e) { showPremiumAlert("ERROR DE RED", "No se pudo conectar al servidor."); }
         }
 
@@ -2465,6 +2438,7 @@
         function iniciarEscaner() { if (html5QrcodeScanner) return; html5QrcodeScanner = new Html5Qrcode("reader"); html5QrcodeScanner.start({ facingMode: "environment" }, { fps: 12, qrbox: { width: 260, height: 260 } }, decodedText => validarTicketPuerta(decodedText), () => {}).catch(err => { showPremiumAlert("ERROR CÁMARA", "Aceptá los permisos."); html5QrcodeScanner = null; }); }
         function detenerEscaner() { if (html5QrcodeScanner) { html5QrcodeScanner.stop().then(() => { html5QrcodeScanner = null; go('view-roles'); }); } else go('view-roles'); }
         
+        // FIX ESCÁNER PUERTA: Usamos .maybeSingle() para evitar que la cámara colapse.
         async function validarTicketPuerta(raw) {
             html5QrcodeScanner.pause();
             const box = document.getElementById('alerta-content'); if (!box) return;
@@ -2481,9 +2455,8 @@
                 // Buscar en memoria del teléfono
                 let data = dbState.tickets.find(x => x.id === ticketId);
 
-                // Magia Quirúrgica: Si el ticket no está en este celular, lo busca rapidísimo en Supabase
                 if (navigator.onLine) {
-                    // SE CAMBIÓ A maybeSingle() PARA EVITAR QUE SE CONGELE EL ESCÁNER
+                    // FIX: Reemplazado .single() por .maybeSingle()
                     const { data: dbTkt } = await _supabase.from('tickets').select('*').eq('id', ticketId).eq('local_id', cUser).maybeSingle();
                     if (dbTkt) {
                         if (!data) {
@@ -2518,6 +2491,7 @@
         function iniciarEscanerBarra() { if (html5QrBarra) return; html5QrBarra = new Html5Qrcode("reader-barra"); html5QrBarra.start({ facingMode: "environment" }, { fps: 12, qrbox: { width: 280, height: 280 } }, decodedText => validarTicketBarra(decodedText), () => {}).catch(err => { showPremiumAlert("ERROR CÁMARA", "Aceptá los permisos."); html5QrBarra = null; }); }
         function detenerEscanerBarra() { if (html5QrBarra) { html5QrBarra.stop().then(() => { html5QrBarra = null; go('view-roles'); }); } else go('view-roles'); }
         
+        // FIX ESCÁNER BARRA: Usamos .maybeSingle() para evitar que la cámara colapse.
         async function validarTicketBarra(raw) {
             html5QrBarra.pause();
             const box = document.getElementById('alerta-content'); if (!box) return;
@@ -2534,9 +2508,8 @@
                 // Buscar en memoria del teléfono
                 let data = dbState.tickets.find(x => x.id === ticketId);
 
-                // Buscar en la Nube
                 if (navigator.onLine) {
-                    // SE CAMBIÓ A maybeSingle() PARA QUE NO SE CONGELE
+                    // FIX: Reemplazado .single() por .maybeSingle()
                     const { data: dbTkt } = await _supabase.from('tickets').select('*').eq('id', ticketId).eq('local_id', cUser).maybeSingle();
                     if (dbTkt) {
                         if (!data) {
@@ -2605,6 +2578,7 @@
             } catch(e) { return base64Str; }
         }
 
+        // FIX SYNC: Asegurar que convertimos a Number() lo que la base de datos exige que sea numérico.
         async function syncToCloud() {
             if (!cUser) return;
             saveLocalDB(); renderAdmin();
@@ -2619,10 +2593,10 @@
                     }
                 }
 
-                // FIX SE MANDAN LOS PRECIOS COMO NUMEROS Y EL TICKET ID ESTÁ CORRECTO PARA SQL
-                const invPayload = (dbState.inventory||[]).map(i => ({ id: i.id, local_id: cUser, name: i.name, price: Number(i.price), stock: Number(i.stock), category: i.category, bar_id: i.barId || null }));
-                const tktPayload = (dbState.tickets||[]).map(t => ({ id: t.id, local_id: cUser, qty: Number(t.qty), product: t.product, category: t.category, amount: Number(t.amount), origin: t.origin, method: t.method, status: t.status, date: t.date, time: t.time }));
-                const logPayload = (dbState.logs||[]).map(l => ({ id: l.id, local_id: cUser, type: l.type, method: l.method || '', amount: Number(l.amount), description: l.description, origin: l.origin || '', foto_base64: l.foto || null, ticket_id: l.ticketId || null, date: l.date, time: l.time }));
+                // 2. Preparar inyección a tablas SQL Separadas, forzando Numbers
+                const invPayload = dbState.inventory.map(i => ({ id: i.id, local_id: cUser, name: i.name, price: Number(i.price), stock: Number(i.stock), category: i.category, bar_id: i.barId || null }));
+                const tktPayload = dbState.tickets.map(t => ({ id: t.id, local_id: cUser, qty: Number(t.qty), product: t.product, category: t.category, amount: Number(t.amount), origin: t.origin, method: t.method, status: t.status, date: t.date, time: t.time }));
+                const logPayload = dbState.logs.map(l => ({ id: l.id, local_id: cUser, type: l.type, method: l.method || '', amount: Number(l.amount), description: l.description, origin: l.origin || '', foto_base64: l.foto || null, ticket_id: l.ticketId || null, date: l.date, time: l.time }));
 
                 // 3. Ejecutar UPSERT a SQL
                 if (invPayload.length) await _supabase.from('inventario').upsert(invPayload).catch(()=>{});
@@ -2632,7 +2606,7 @@
                 // 4. Sincronizar Barras
                 const { data: extBarras } = await _supabase.from('barras').select('nombre').eq('local_id', cUser);
                 const nombresActuales = extBarras ? extBarras.map(b=>b.nombre) : [];
-                const nuevasBarras = (dbState.barras||[]).filter(b => !nombresActuales.includes(b));
+                const nuevasBarras = dbState.barras.filter(b => !nombresActuales.includes(b));
                 if(nuevasBarras.length > 0) {
                     await _supabase.from('barras').insert(nuevasBarras.map(b => ({ local_id: cUser, nombre: b })));
                 }
@@ -2774,8 +2748,8 @@
                 }).catch(err => console.log('Error Service Worker', err));
             });
         }
-        
-        // AUTO-LOGIN AL ENTRAR A LA APP
+
+        // FIX: AUTO-LOGIN Y PROTECCIÓN AL INGRESAR
         window.addEventListener('DOMContentLoaded', () => {
             const savedUser = localStorage.getItem('vip_cUser');
             const savedPin = localStorage.getItem('vip_cPin');
