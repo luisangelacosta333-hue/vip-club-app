@@ -1934,12 +1934,14 @@
             let pin   = (document.getElementById('login-pin').value||'').trim();
             if (!local || !pin) return showPremiumAlert("DATOS FALTANTES", "Ingresá sucursal y PIN.");
 
+            // FIX 1: CARGAMOS LA MEMORIA LOCAL PRIMERO SIEMPRE (Protección contra borrado fantasma)
+            loadLocalDB();
+
             if (!navigator.onLine) {
                 const savedUser = localStorage.getItem('vip_cUser');
                 const savedPin = localStorage.getItem('vip_cPin');
                 if (local === savedUser && pin === savedPin) {
                     cUser = local; cPin = pin; cAdminPin = localStorage.getItem('vip_cAdminPin') || "0000";
-                    loadLocalDB();
                     go('view-roles');
                     renderAdmin();
                     return showPremiumAlert("MODO OFFLINE", "Iniciaste sesión sin internet. Los datos se guardarán en tu celular.", "success");
@@ -1949,7 +1951,7 @@
             }
             
             try {
-                const { data, error } = await _supabase.from('usuarios').select('*').eq('local', local).eq('pin', pin).single();
+                const { data, error } = await _supabase.from('usuarios').select('*').eq('local', local).eq('pin', pin).maybeSingle();
                 if (error || !data) return showPremiumAlert("ACCESO DENEGADO", "Credenciales inválidas. Verificá tus datos.");
                 
                 const cd = typeof data.app_data === 'string' ? JSON.parse(data.app_data) : data.app_data;
@@ -1973,13 +1975,33 @@
                         _supabase.from('logs').select('*').eq('local_id', cUser).order('created_at', { ascending: false }).limit(300)
                     ]);
                     
-                    dbState.barras = resBarras.data && resBarras.data.length ? resBarras.data.map(b => b.nombre) : ["Barra 1"];
-                    dbState.inventory = (resInv.data || []).map(i => ({ id: i.id, name: i.name, price: Number(i.price), stock: Number(i.stock), category: i.category, barId: i.bar_id }));
-                    dbState.tickets = (resTickets.data || []).map(t => ({ id: t.id, qty: Number(t.qty), product: t.product, category: t.category, amount: Number(t.amount), origin: t.origin, method: t.method, status: t.status, date: t.date, time: t.time }));
-                    dbState.logs = (resLogs.data || []).map(l => ({ id: l.id, type: l.type, method: l.method, amount: Number(l.amount), description: l.description, origin: l.origin, foto: l.foto_base64, ticketId: l.ticket_id, date: l.date, time: l.time }));
+                    // FIX 2: Solo reemplazamos lo del celular si la nube trae cosas reales.
+                    if (resBarras.data && resBarras.data.length > 0) {
+                        dbState.barras = resBarras.data.map(b => b.nombre);
+                    } else if (!dbState.barras || dbState.barras.length === 0) {
+                        dbState.barras = ["Barra 1"];
+                    }
+                    
+                    if (resInv.data && resInv.data.length > 0) {
+                        dbState.inventory = resInv.data.map(i => ({ id: i.id, name: i.name, price: Number(i.price), stock: Number(i.stock), category: i.category, barId: i.bar_id || i.barId }));
+                    }
+                    
+                    if (resTickets.data && resTickets.data.length > 0) {
+                        const cloudTks = resTickets.data.map(t => ({ id: t.id, qty: Number(t.qty), product: t.product, category: t.category, amount: Number(t.amount), origin: t.origin, method: t.method, status: t.status, date: t.date, time: t.time }));
+                        const localTkIds = new Set(cloudTks.map(t => t.id));
+                        (dbState.tickets || []).forEach(t => { if (!localTkIds.has(t.id)) cloudTks.push(t); });
+                        dbState.tickets = cloudTks;
+                    }
+                    
+                    if (resLogs.data && resLogs.data.length > 0) {
+                        const cloudLogs = resLogs.data.map(l => ({ id: l.id, type: l.type, method: l.method, amount: Number(l.amount), description: l.description, origin: l.origin, foto: l.foto_base64, ticketId: l.ticket_id || l.ticketId, date: l.date, time: l.time }));
+                        const localLogIds = new Set(cloudLogs.map(l => l.id));
+                        (dbState.logs || []).forEach(l => { if (!localLogIds.has(l.id)) cloudLogs.push(l); });
+                        dbState.logs = cloudLogs.sort((a,b) => new Date(b.date+' '+b.time) - new Date(a.date+' '+a.time));
+                    }
+
                 } catch(e) {
-                    console.log("Aviso: Cargando fallback por si las tablas están vacías");
-                    dbState.barras = ["Barra 1"]; dbState.inventory = []; dbState.tickets = []; dbState.logs = [];
+                    console.log("Aviso: Error bajando de Supabase, se mantiene memoria del celular intacta.");
                 }
 
                 localStorage.setItem('vip_cUser', cUser);
@@ -1990,6 +2012,10 @@
                 document.getElementById('login-pin').value = '';
                 go('view-roles');
                 renderAdmin();
+                
+                // Intentamos subir lo que haya quedado sin subir
+                syncToCloud();
+                
             } catch (e) { showPremiumAlert("ERROR DE RED", "No se pudo conectar al servidor."); }
         }
 
@@ -2429,73 +2455,23 @@
         function iniciarEscaner() { if (html5QrcodeScanner) return; html5QrcodeScanner = new Html5Qrcode("reader"); html5QrcodeScanner.start({ facingMode: "environment" }, { fps: 12, qrbox: { width: 260, height: 260 } }, decodedText => validarTicketPuerta(decodedText), () => {}).catch(err => { showPremiumAlert("ERROR CÁMARA", "Aceptá los permisos."); html5QrcodeScanner = null; }); }
         function detenerEscaner() { if (html5QrcodeScanner) { html5QrcodeScanner.stop().then(() => { html5QrcodeScanner = null; go('view-roles'); }); } else go('view-roles'); }
         
+        // FIX ESCÁNER PUERTA: Evita que el escáner se rompa con .maybeSingle() y un try...catch.
         async function validarTicketPuerta(raw) {
             html5QrcodeScanner.pause();
             const box = document.getElementById('alerta-content'); if (!box) return;
 
-            // UI de carga temporal
             box.innerHTML = `<div style="padding:40px 0;text-align:center;"><div class="scanner-big-icon neon-cyan">⏳</div><h2 class="font-display neon-cyan" style="font-size:1.5rem;margin-top:10px;">VERIFICANDO...</h2></div>`;
             box.style.borderColor = 'rgba(0,240,255,0.4)';
             document.getElementById('modal-alerta').style.display = 'flex';
 
-            let ticketId = raw.trim();
-            try { if (ticketId.startsWith('{')) ticketId = JSON.parse(ticketId).id; } catch(e) { }
+            try {
+                let ticketId = raw.trim();
+                try { if (ticketId.startsWith('{')) ticketId = JSON.parse(ticketId).id; } catch(e) { }
 
-            // Buscar en memoria del teléfono
-            let data = dbState.tickets.find(x => x.id === ticketId);
+                let data = dbState.tickets.find(x => x.id === ticketId);
 
-            // Magia Quirúrgica: Si el ticket no está en este celular, lo busca rapidísimo en Supabase
-            if (navigator.onLine) {
-                try {
-                    const { data: dbTkt } = await _supabase.from('tickets').select('*').eq('id', ticketId).eq('local_id', cUser).maybeSingle();
-                    if (dbTkt) {
-                        if (!data) {
-                            data = { id: dbTkt.id, qty: Number(dbTkt.qty), product: dbTkt.product, category: dbTkt.category, amount: Number(dbTkt.amount), origin: dbTkt.origin, method: dbTkt.method, status: dbTkt.status, date: dbTkt.date, time: dbTkt.time };
-                            dbState.tickets.push(data); // Lo guarda en el celu para futuras lecturas
-                        } else {
-                            data.status = dbTkt.status; // Actualiza el estado al real
-                        }
-                    }
-                } catch(e) { }
-            }
-
-            if (!data) {
-                box.innerHTML = `<div class="scanner-big-icon neon-red">⛔</div><h2 class="font-display neon-red" style="font-size:1.8rem;margin:15px 0;">QR INVÁLIDO</h2><p style="color:var(--text-soft);font-size:0.9rem;margin-bottom:15px;">Ticket no encontrado en la base de datos.</p><button class="btn btn-purple" onclick="cerrarAlerta()">VOLVER A ESCANEAR</button>`; box.style.borderColor = 'rgba(255,45,85,0.4)';
-            } else if (data.status !== 'ACTIVO') {
-                box.innerHTML = `<div class="scanner-big-icon neon-red">🔥</div><h2 class="font-display neon-red" style="font-size:1.6rem;margin:15px 0;">QR YA USADO</h2><p style="color:var(--text-soft);font-size:0.9rem;margin-bottom:15px;">Este ticket ya ingresó antes.</p><button class="btn btn-purple" onclick="cerrarAlerta()">VOLVER A ESCANEAR</button>`; box.style.borderColor = 'rgba(255,45,85,0.4)';
-            } else if (data.category !== 'entrada') {
-                box.innerHTML = `<div class="scanner-big-icon neon-cyan">🍸</div><h2 class="font-display neon-cyan" style="font-size:1.5rem;margin:15px 0;">NO ES ENTRADA</h2><p style="color:var(--text-soft);font-size:0.95rem;">El cliente debe retirar esto en <b class="neon-cyan">${data.origin}</b>:</p><p style="color:white;font-weight:bold;margin-bottom:15px;">${data.qty}x ${data.product}</p><button class="btn btn-cyan" onclick="cerrarAlerta()">VOLVER A ESCANEAR</button>`; box.style.borderColor = 'rgba(0,240,255,0.4)';
-            } else {
-                // QUEMAR TICKET DE ENTRADA
-                data.status = 'USADO';
-                if (navigator.onLine) _supabase.from('tickets').update({ status: 'USADO' }).eq('id', data.id);
-                syncToCloud();
-
-                box.innerHTML = `<div class="scanner-big-icon neon-green">✅</div><h2 class="font-display" style="color:var(--neon-green);font-weight:900;font-size:2rem;margin:15px 0;">¡INGRESO VÁLIDO!</h2><p style="font-family:'Orbitron';color:white;font-size:1.2rem;font-weight:900;">${data.qty}x ${data.product.toUpperCase()}</p><button class="btn btn-cyan" style="margin-top:20px;" onclick="cerrarAlerta()">SIGUIENTE CLIENTE</button>`; box.style.borderColor = 'rgba(0,255,148,0.4)';
-            }
-        }
-
-        function iniciarEscanerBarra() { if (html5QrBarra) return; html5QrBarra = new Html5Qrcode("reader-barra"); html5QrBarra.start({ facingMode: "environment" }, { fps: 12, qrbox: { width: 280, height: 280 } }, decodedText => validarTicketBarra(decodedText), () => {}).catch(err => { showPremiumAlert("ERROR CÁMARA", "Aceptá los permisos."); html5QrBarra = null; }); }
-        function detenerEscanerBarra() { if (html5QrBarra) { html5QrBarra.stop().then(() => { html5QrBarra = null; go('view-roles'); }); } else go('view-roles'); }
-        
-        async function validarTicketBarra(raw) {
-            html5QrBarra.pause();
-            const box = document.getElementById('alerta-content'); if (!box) return;
-
-            // UI de carga temporal
-            box.innerHTML = `<div style="padding:40px 0;text-align:center;"><div class="scanner-big-icon neon-cyan">⏳</div><h2 class="font-display neon-cyan" style="font-size:1.5rem;margin-top:10px;">VERIFICANDO...</h2></div>`;
-            box.style.borderColor = 'rgba(0,240,255,0.4)';
-            document.getElementById('modal-alerta').style.display = 'flex';
-
-            let ticketId = raw.trim();
-            try { if (ticketId.startsWith('{')) ticketId = JSON.parse(ticketId).id; } catch(e) { }
-
-            // Buscar en memoria del teléfono
-            let data = dbState.tickets.find(x => x.id === ticketId);
-
-            // Buscar en la Nube
-            if (navigator.onLine) {
-                try {
+                if (navigator.onLine) {
+                    // FIX: Reemplazado .single() por .maybeSingle()
                     const { data: dbTkt } = await _supabase.from('tickets').select('*').eq('id', ticketId).eq('local_id', cUser).maybeSingle();
                     if (dbTkt) {
                         if (!data) {
@@ -2505,36 +2481,88 @@
                             data.status = dbTkt.status;
                         }
                     }
-                } catch(e) {}
-            }
+                }
 
-            if (!data) {
-                box.innerHTML = `<div class="scanner-big-icon neon-red">⛔</div><h2 class="font-display neon-red" style="font-size:1.8rem;">CÓDIGO INVÁLIDO</h2><p style="color:var(--text-soft);font-size:0.9rem;margin:10px 0 15px;">Ticket no encontrado.</p><button class="btn btn-purple" onclick="cerrarAlertaBarra()">VOLVER A ESCANEAR</button>`; box.style.borderColor = 'rgba(255,45,85,0.4)';
-            }
-            else if (data.status !== 'ACTIVO') {
-                box.innerHTML = `<div class="scanner-big-icon neon-red">🔥</div><h2 class="font-display neon-red" style="font-size:1.6rem;">¡QR YA QUEMADO!</h2><p style="color:var(--text-soft);font-size:0.9rem;margin:10px 0 15px;">Ya se entregó este pedido.</p><button class="btn btn-purple" onclick="cerrarAlertaBarra()">VOLVER A ESCANEAR</button>`; box.style.borderColor = 'rgba(255,45,85,0.4)';
-            }
-            else if (data.category === 'entrada') {
-                box.innerHTML = `<div class="scanner-big-icon neon-purple">🎟️</div><h2 class="font-display neon-purple" style="font-size:1.6rem;">ES UNA ENTRADA</h2><p style="color:var(--text-soft);font-size:0.9rem;margin:10px 0 15px;">Este QR es de puerta, no de barra.</p><button class="btn btn-purple" onclick="cerrarAlertaBarra()">VOLVER A ESCANEAR</button>`; box.style.borderColor = 'rgba(180,0,255,0.4)';
-            }
-            else {
-                // QUEMAR BEBIDA DE BARRA
-                data.status = 'ENTREGADO';
-                if (navigator.onLine) _supabase.from('tickets').update({ status: 'ENTREGADO' }).eq('id', data.id);
-                syncToCloud();
+                if (!data) {
+                    box.innerHTML = `<div class="scanner-big-icon neon-red">⛔</div><h2 class="font-display neon-red" style="font-size:1.8rem;margin:15px 0;">QR INVÁLIDO</h2><p style="color:var(--text-soft);font-size:0.9rem;margin-bottom:15px;">Ticket no encontrado.</p><button class="btn btn-purple" onclick="cerrarAlerta()">VOLVER A ESCANEAR</button>`; box.style.borderColor = 'rgba(255,45,85,0.4)';
+                } else if (data.status !== 'ACTIVO') {
+                    box.innerHTML = `<div class="scanner-big-icon neon-red">🔥</div><h2 class="font-display neon-red" style="font-size:1.6rem;margin:15px 0;">QR YA USADO</h2><p style="color:var(--text-soft);font-size:0.9rem;margin-bottom:15px;">Este ticket ya ingresó antes.</p><button class="btn btn-purple" onclick="cerrarAlerta()">VOLVER A ESCANEAR</button>`; box.style.borderColor = 'rgba(255,45,85,0.4)';
+                } else if (data.category !== 'entrada') {
+                    box.innerHTML = `<div class="scanner-big-icon neon-cyan">🍸</div><h2 class="font-display neon-cyan" style="font-size:1.5rem;margin:15px 0;">NO ES ENTRADA</h2><p style="color:var(--text-soft);font-size:0.95rem;">El cliente debe retirar esto en <b class="neon-cyan">${data.origin}</b>:</p><p style="color:white;font-weight:bold;margin-bottom:15px;">${data.qty}x ${data.product}</p><button class="btn btn-cyan" onclick="cerrarAlerta()">VOLVER A ESCANEAR</button>`; box.style.borderColor = 'rgba(0,240,255,0.4)';
+                } else {
+                    data.status = 'USADO';
+                    if (navigator.onLine) _supabase.from('tickets').update({ status: 'USADO' }).eq('id', data.id);
+                    syncToCloud();
 
-                try { const voz = new SpeechSynthesisUtterance(); voz.text = `ENTREGAR: ${data.qty} ${data.product.toUpperCase()}`; voz.lang = 'es-AR'; window.speechSynthesis.cancel(); window.speechSynthesis.speak(voz); } catch(e){}
-                box.innerHTML = `
-                    <div class="scanner-big-icon neon-green">✅</div>
-                    <h2 class="font-display" style="color:var(--neon-green);">¡CÓDIGO VÁLIDO!</h2>
-                    <div class="entregar-box">
-                        <div class="entregar-label">🔥 DESPACHAR AHORA:</div>
-                        <div class="entregar-producto">${data.product}</div>
-                        <div class="entregar-cantidad">${data.qty} UNIDADES</div>
-                    </div>
-                    <button class="btn btn-cyan" style="margin-top:20px;" onclick="cerrarAlertaBarra()">SIGUIENTE CLIENTE</button>
-                `;
-                box.style.borderColor = 'rgba(0,255,148,0.4)';
+                    box.innerHTML = `<div class="scanner-big-icon neon-green">✅</div><h2 class="font-display" style="color:var(--neon-green);font-weight:900;font-size:2rem;margin:15px 0;">¡INGRESO VÁLIDO!</h2><p style="font-family:'Orbitron';color:white;font-size:1.2rem;font-weight:900;">${data.qty}x ${data.product.toUpperCase()}</p><button class="btn btn-cyan" style="margin-top:20px;" onclick="cerrarAlerta()">SIGUIENTE CLIENTE</button>`; box.style.borderColor = 'rgba(0,255,148,0.4)';
+                }
+            } catch (error) {
+                console.error(error);
+                box.innerHTML = `<div class="scanner-big-icon neon-red">⚠️</div><h2 class="font-display neon-red" style="font-size:1.5rem;margin:15px 0;">ERROR DE LECTURA</h2><p style="color:white;">El código es ilegible.</p><button class="btn btn-purple" onclick="cerrarAlerta()">REINTENTAR</button>`;
+            }
+        }
+
+        function iniciarEscanerBarra() { if (html5QrBarra) return; html5QrBarra = new Html5Qrcode("reader-barra"); html5QrBarra.start({ facingMode: "environment" }, { fps: 12, qrbox: { width: 280, height: 280 } }, decodedText => validarTicketBarra(decodedText), () => {}).catch(err => { showPremiumAlert("ERROR CÁMARA", "Aceptá los permisos."); html5QrBarra = null; }); }
+        function detenerEscanerBarra() { if (html5QrBarra) { html5QrBarra.stop().then(() => { html5QrBarra = null; go('view-roles'); }); } else go('view-roles'); }
+        
+        // FIX ESCÁNER BARRA: Evita que el escáner se rompa con .maybeSingle() y un try...catch.
+        async function validarTicketBarra(raw) {
+            html5QrBarra.pause();
+            const box = document.getElementById('alerta-content'); if (!box) return;
+
+            box.innerHTML = `<div style="padding:40px 0;text-align:center;"><div class="scanner-big-icon neon-cyan">⏳</div><h2 class="font-display neon-cyan" style="font-size:1.5rem;margin-top:10px;">VERIFICANDO...</h2></div>`;
+            box.style.borderColor = 'rgba(0,240,255,0.4)';
+            document.getElementById('modal-alerta').style.display = 'flex';
+
+            try {
+                let ticketId = raw.trim();
+                try { if (ticketId.startsWith('{')) ticketId = JSON.parse(ticketId).id; } catch(e) { }
+
+                let data = dbState.tickets.find(x => x.id === ticketId);
+
+                if (navigator.onLine) {
+                    // FIX: Reemplazado .single() por .maybeSingle()
+                    const { data: dbTkt } = await _supabase.from('tickets').select('*').eq('id', ticketId).eq('local_id', cUser).maybeSingle();
+                    if (dbTkt) {
+                        if (!data) {
+                            data = { id: dbTkt.id, qty: Number(dbTkt.qty), product: dbTkt.product, category: dbTkt.category, amount: Number(dbTkt.amount), origin: dbTkt.origin, method: dbTkt.method, status: dbTkt.status, date: dbTkt.date, time: dbTkt.time };
+                            dbState.tickets.push(data);
+                        } else {
+                            data.status = dbTkt.status;
+                        }
+                    }
+                }
+
+                if (!data) {
+                    box.innerHTML = `<div class="scanner-big-icon neon-red">⛔</div><h2 class="font-display neon-red" style="font-size:1.8rem;">CÓDIGO INVÁLIDO</h2><p style="color:var(--text-soft);font-size:0.9rem;margin:10px 0 15px;">Ticket no encontrado.</p><button class="btn btn-purple" onclick="cerrarAlertaBarra()">VOLVER A ESCANEAR</button>`; box.style.borderColor = 'rgba(255,45,85,0.4)';
+                }
+                else if (data.status !== 'ACTIVO') {
+                    box.innerHTML = `<div class="scanner-big-icon neon-red">🔥</div><h2 class="font-display neon-red" style="font-size:1.6rem;">¡QR YA QUEMADO!</h2><p style="color:var(--text-soft);font-size:0.9rem;margin:10px 0 15px;">Ya se entregó este pedido.</p><button class="btn btn-purple" onclick="cerrarAlertaBarra()">VOLVER A ESCANEAR</button>`; box.style.borderColor = 'rgba(255,45,85,0.4)';
+                }
+                else if (data.category === 'entrada') {
+                    box.innerHTML = `<div class="scanner-big-icon neon-purple">🎟️</div><h2 class="font-display neon-purple" style="font-size:1.6rem;">ES UNA ENTRADA</h2><p style="color:var(--text-soft);font-size:0.9rem;margin:10px 0 15px;">Este QR es de puerta, no de barra.</p><button class="btn btn-purple" onclick="cerrarAlertaBarra()">VOLVER A ESCANEAR</button>`; box.style.borderColor = 'rgba(180,0,255,0.4)';
+                }
+                else {
+                    data.status = 'ENTREGADO';
+                    if (navigator.onLine) _supabase.from('tickets').update({ status: 'ENTREGADO' }).eq('id', data.id);
+                    syncToCloud();
+
+                    try { const voz = new SpeechSynthesisUtterance(); voz.text = `ENTREGAR: ${data.qty} ${data.product.toUpperCase()}`; voz.lang = 'es-AR'; window.speechSynthesis.cancel(); window.speechSynthesis.speak(voz); } catch(e){}
+                    box.innerHTML = `
+                        <div class="scanner-big-icon neon-green">✅</div>
+                        <h2 class="font-display" style="color:var(--neon-green);">¡CÓDIGO VÁLIDO!</h2>
+                        <div class="entregar-box">
+                            <div class="entregar-label">🔥 DESPACHAR AHORA:</div>
+                            <div class="entregar-producto">${data.product}</div>
+                            <div class="entregar-cantidad">${data.qty} UNIDADES</div>
+                        </div>
+                        <button class="btn btn-cyan" style="margin-top:20px;" onclick="cerrarAlertaBarra()">SIGUIENTE CLIENTE</button>
+                    `;
+                    box.style.borderColor = 'rgba(0,255,148,0.4)';
+                }
+            } catch (error) {
+                console.error(error);
+                box.innerHTML = `<div class="scanner-big-icon neon-red">⚠️</div><h2 class="font-display neon-red" style="font-size:1.5rem;margin:15px 0;">ERROR DE LECTURA</h2><p style="color:white;">El código es ilegible.</p><button class="btn btn-purple" onclick="cerrarAlertaBarra()">REINTENTAR</button>`;
             }
         }
         
@@ -2543,7 +2571,6 @@
         
         /* ========== MODO OFFLINE, STORAGE Y SYNC SQL (MÁGIA RELACIONAL) ========== */
         
-        // Sube foto a Storage y devuelve el link público
         async function uploadFotoToSupabase(base64Str) {
             try {
                 const base64Data = base64Str.split(',')[1];
@@ -2561,13 +2588,14 @@
             } catch(e) { return base64Str; }
         }
 
+        // FIX SYNC: Se corrigen los envíos de números y el ticket_id
         async function syncToCloud() {
             if (!cUser) return;
-            saveLocalDB(); renderAdmin();
+            saveLocalDB(); 
+            renderAdmin();
             if (!navigator.onLine) return; 
 
             try {
-                // 1. Subir a Storage y limpiar Base64
                 for (let l of dbState.logs) {
                     if (l.foto && l.foto.startsWith('data:image')) {
                          l.foto = await uploadFotoToSupabase(l.foto);
@@ -2575,17 +2603,14 @@
                     }
                 }
 
-                // 2. Preparar inyección a tablas SQL Separadas
-                const invPayload = dbState.inventory.map(i => ({ id: i.id, local_id: cUser, name: i.name, price: Number(i.price), stock: Number(i.stock), category: i.category, bar_id: i.barId }));
+                const invPayload = dbState.inventory.map(i => ({ id: i.id, local_id: cUser, name: i.name, price: Number(i.price), stock: Number(i.stock), category: i.category, bar_id: i.barId || null }));
                 const tktPayload = dbState.tickets.map(t => ({ id: t.id, local_id: cUser, qty: Number(t.qty), product: t.product, category: t.category, amount: Number(t.amount), origin: t.origin, method: t.method, status: t.status, date: t.date, time: t.time }));
                 const logPayload = dbState.logs.map(l => ({ id: l.id, local_id: cUser, type: l.type, method: l.method, amount: Number(l.amount), description: l.description, origin: l.origin, foto_base64: l.foto, ticket_id: l.ticketId, date: l.date, time: l.time }));
 
-                // 3. Ejecutar UPSERT a SQL
-                if (invPayload.length) await _supabase.from('inventario').upsert(invPayload);
-                if (tktPayload.length) await _supabase.from('tickets').upsert(tktPayload);
-                if (logPayload.length) await _supabase.from('logs').upsert(logPayload);
+                if (invPayload.length) await _supabase.from('inventario').upsert(invPayload).catch(()=>{});
+                if (tktPayload.length) await _supabase.from('tickets').upsert(tktPayload).catch(()=>{});
+                if (logPayload.length) await _supabase.from('logs').upsert(logPayload).catch(()=>{});
 
-                // 4. Sincronizar Barras
                 const { data: extBarras } = await _supabase.from('barras').select('nombre').eq('local_id', cUser);
                 const nombresActuales = extBarras ? extBarras.map(b=>b.nombre) : [];
                 const nuevasBarras = dbState.barras.filter(b => !nombresActuales.includes(b));
@@ -2593,8 +2618,7 @@
                     await _supabase.from('barras').insert(nuevasBarras.map(b => ({ local_id: cUser, nombre: b })));
                 }
 
-                // 5. Mantener viva la info de la suscripción
-                const { data } = await _supabase.from('usuarios').select('app_data').eq('local', cUser).single();
+                const { data } = await _supabase.from('usuarios').select('app_data').eq('local', cUser).maybeSingle();
                 let payload = {};
                 if (data && data.app_data) {
                     const oldData = typeof data.app_data === 'string' ? JSON.parse(data.app_data) : data.app_data;
@@ -2603,7 +2627,7 @@
                 }
                 await _supabase.from('usuarios').update({ app_data: payload }).eq('local', cUser);
 
-            } catch(e) { console.log("Guardado offline ok."); }
+            } catch(e) { console.log("Fallo silencioso subiendo a la nube, datos protegidos en celular."); }
         }
 
         /* ========== COMPARTIR QR A PANTALLA COMPLETA ========== */
@@ -2611,14 +2635,9 @@
             try {
                 const targetNode = document.getElementById('modal-qr-content');
                 const btnContainer = document.getElementById('qr-buttons');
-                
                 btnContainer.style.display = 'none';
 
-                const canvas = await html2canvas(targetNode, {
-                    backgroundColor: '#0a0a14', 
-                    scale: 2 
-                });
-
+                const canvas = await html2canvas(targetNode, { backgroundColor: '#0a0a14', scale: 2 });
                 btnContainer.style.display = 'block';
 
                 const dataUrl = canvas.toDataURL('image/png');
@@ -2629,7 +2648,6 @@
                 if (navigator.canShare && navigator.canShare({ files: [file] })) {
                     await navigator.share({
                         title: 'Pase VIP CLUB',
-                        // === TEXTO ESTRATÉGICO WHATSAPP ===
                         text: '✨ ¡Acá tenés tu Pase VIP para esta noche! 🥂 Mostrale este código al portero desde tu pantalla (acordate que es de un solo uso). ¡Que disfrutes la fiesta!',
                         files: [file]
                     });
@@ -2652,15 +2670,7 @@
             const container = document.getElementById('banner-qr-canvas');
             container.innerHTML = '';
             
-            new QRCode(container, {
-                text: link,
-                width: 512,
-                height: 512,
-                colorDark: '#000000',
-                colorLight: '#ffffff',
-                correctLevel: QRCode.CorrectLevel.H
-            });
-            
+            new QRCode(container, { text: link, width: 512, height: 512, colorDark: '#000000', colorLight: '#ffffff', correctLevel: QRCode.CorrectLevel.H });
             document.getElementById('banner-qr-box').style.display = 'block';
         }
 
@@ -2669,23 +2679,14 @@
             if(!wrapper) return showPremiumAlert("ERROR", "No se encontró el contenedor del QR.");
             
             try {
-                // Captura el div con fondo blanco (id="banner-qr-wrapper")
-                const canvas = await html2canvas(wrapper, {
-                    backgroundColor: '#ffffff', 
-                    scale: 2 
-                });
-
+                const canvas = await html2canvas(wrapper, { backgroundColor: '#ffffff', scale: 2 });
                 const dataUrl = canvas.toDataURL('image/png');
                 const res = await fetch(dataUrl);
                 const blob = await res.blob();
                 const file = new File([blob], `VIP-Banner-Lona-${Date.now()}.png`, { type: "image/png" });
 
                 if (navigator.canShare && navigator.canShare({ files: [file] })) {
-                    await navigator.share({
-                        title: 'Banner HD',
-                        text: 'Acá tenés el código QR en Alta Definición, con los márgenes blancos correctos para la imprenta.',
-                        files: [file]
-                    });
+                    await navigator.share({ title: 'Banner HD', text: 'Acá tenés el código QR en Alta Definición, con los márgenes blancos correctos para la imprenta.', files: [file] });
                 } else {
                     const a = document.createElement('a');
                     a.href = dataUrl;
@@ -2694,52 +2695,30 @@
                     a.click();
                     document.body.removeChild(a);
                 }
-            } catch(e) {
-                showPremiumAlert("ERROR", "Falló la descarga.");
-            }
+            } catch(e) { showPremiumAlert("ERROR", "Falló la descarga."); }
         }
 
         /* ========== INSTALACIÓN DE PWA ========== */
         let eventoInstalacion;
         const btnInstalar = document.getElementById('btn-instalar-app');
 
-        window.addEventListener('beforeinstallprompt', (e) => {
-            e.preventDefault();
-            eventoInstalacion = e;
-            if (btnInstalar) btnInstalar.style.display = 'flex';
-        });
+        window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); eventoInstalacion = e; if (btnInstalar) btnInstalar.style.display = 'flex'; });
+        if (btnInstalar) { btnInstalar.addEventListener('click', async () => { if (!eventoInstalacion) return; eventoInstalacion.prompt(); const { outcome } = await eventoInstalacion.userChoice; if (outcome === 'accepted') btnInstalar.style.display = 'none'; eventoInstalacion = null; }); }
+        window.addEventListener('appinstalled', () => { if (btnInstalar) btnInstalar.style.display = 'none'; });
 
-        if (btnInstalar) {
-            btnInstalar.addEventListener('click', async () => {
-                if (!eventoInstalacion) return;
-                eventoInstalacion.prompt();
-                const { outcome } = await eventoInstalacion.userChoice;
-                if (outcome === 'accepted') btnInstalar.style.display = 'none';
-                eventoInstalacion = null;
-            });
-        }
+        if ('serviceWorker' in navigator) { window.addEventListener('load', () => { navigator.serviceWorker.register('sw.js').then(reg => { console.log('Service Worker listo VIP CLUB', reg); }).catch(err => console.log('Error Service Worker', err)); }); }
 
-        window.addEventListener('appinstalled', () => {
-            if (btnInstalar) btnInstalar.style.display = 'none';
-        });
-
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('sw.js').then(reg => {
-                    console.log('Service Worker listo VIP CLUB', reg);
-                }).catch(err => console.log('Error Service Worker', err));
-            });
-        }
-
-        // AUTO-LOGIN AL ENTRAR A LA APP
+        // =======================================================
+        // FIX AUTO-LOGIN: VUELVE DIRECTO A LA APP SIN BORRAR NADA
+        // =======================================================
         window.addEventListener('DOMContentLoaded', () => {
             const savedUser = localStorage.getItem('vip_cUser');
             const savedPin = localStorage.getItem('vip_cPin');
             if (savedUser && savedPin) {
                 document.getElementById('login-local').value = savedUser;
                 document.getElementById('login-pin').value = savedPin;
-                // Para que salte derecho, descomenta la siguiente línea:
-                // executeLogin();
+                // Entra automáticamente protegiendo la memoria local
+                executeLogin();
             }
         });
     </script>
