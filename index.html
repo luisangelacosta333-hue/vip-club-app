@@ -1683,10 +1683,25 @@
             
             <!-- HISTORIAL -->
             <h3 class="section-title" style="background: var(--grad-gold); -webkit-background-clip: text; background-clip: text; color: transparent;">📜 AUDITORÍA DE VENTAS</h3>
-            <div class="card card-gold">
+            <div class="card card-gold" style="margin-bottom: 24px;">
                 <p style="color: var(--text-gray); font-size: 0.85rem; margin: 0 0 14px; font-weight: 600;">Filtrá por sector para ver el detalle de cada operación:</p>
                 <div class="pills-wrapper-edge" id="selector-historial-sector"></div>
                 <div id="admin-history-container" style="margin-top: 10px;"></div>
+            </div>
+
+            <!-- === NUEVO: BANNER WHATSAPP (PUERTA) === -->
+            <h3 class="section-title neon-green">📲 CREADOR DE BANNER (PUERTA)</h3>
+            <div class="card" style="border-color: rgba(0,255,148,0.25); box-shadow: 0 10px 40px rgba(0,255,148,0.1), inset 0 1px 0 rgba(0,255,148,0.1);">
+                <p style="color: var(--text-gray); font-size: 0.85rem; margin: 0 0 14px; font-weight: 600;">Ingresá el WhatsApp del boliche (con código de país, sin el +). El cliente escanea el cartel impreso y te pide la entrada al instante.</p>
+                <input type="number" id="banner-wa-number" class="input-lux" placeholder="Ej: 5491123456789">
+                <button class="btn" style="background: linear-gradient(135deg, #00ff94 0%, #00b8d4 100%); color: #001018; margin-bottom: 14px;" onclick="generarQRBanner()">🛠️ CREAR QR PARA IMPRENTA</button>
+
+                <div id="banner-qr-box" style="display:none; text-align:center; padding: 20px 0;">
+                    <div style="background: white; padding: 20px; border-radius: 24px; display: inline-block; margin-bottom: 15px; box-shadow: 0 15px 40px rgba(0,255,148,0.2), 0 0 0 4px rgba(0,255,148,0.1);">
+                        <div id="banner-qr-canvas"></div>
+                    </div>
+                    <button class="btn-outline" style="color: var(--neon-green); border-color: rgba(0,255,148,0.4); background: rgba(0,255,148,0.05);" onclick="descargarQRBanner()">⬇️ DESCARGAR IMAGEN HD</button>
+                </div>
             </div>
             
             <div style="height: 20px;"></div>
@@ -1852,7 +1867,7 @@
         function leerFanPageAudio() {
             window.speechSynthesis.cancel();
             const s = new SpeechSynthesisUtterance();
-            s.text = "¡ATENCIÓN DUEÑO DE BOLICHE! Dejá de perder plata hoy mismo con VIP CLUB Ultra Premium de Energy Software. ¿Sabés cuánta plata se te escapa por noche por papelitos falsos, chicas que se equivocan en la barra o cajas que no cierran bien? Nosotros lo solucionamos TODO desde tu celular. Mirá lo que hacemos por vos: PRIMERO: cada venta genera un CÓDIGO QR INTELIGENTE que se QUEMA SOLITO en un solo uso. ¡Imposible de falsificar! No más colas en puerta, no más gente que entra sin pagar. SEGUNDO: ESCÁNER EXCLUSIVO PARA TUS BARRAS. La chica escanea el QR del cliente y el sistema le dice EN VOZ ALTA y en PANTALLA GIGANTE: ENTREGAR 2 FERNET, 3 CERVEZAS, 1 VODKA. CERO ERRORES. CERO QUEJAS. CERO MERCANCÍA QUE DESAPARECE. TERCERO: controlás HASTA 5 BARRAS en simultáneo, cada una con su propio stock, su propia caja y su propio corte de turno. CUARTO: BÓVEDA DIGITAL con foto obligatoria de cada transferencia. No más 'no me llegó la transferencia'. QUINTO: PANEL DE DUEÑO en tiempo real. Estés donde estás, ves cuánto entró en efectivo, cuánto en transferencia, qué se vendió más y quién cerró bien. Y lo mejor de todo: NO NECESITÁS COMPRAR NINGUNA MÁQUINA CARA. Funciona con los CELULARES que ya tienen tus empleados. Instalás en 2 minutos, probás hoy mismo. VIP CLUB: tu boliche, al nivel de DIOS. ¡Probalo ya!";
+            s.text = "¡ATENCIÓN DUEÑO DE BOLICHE! Dejá de perder plata hoy mismo con VIP CLUB Ultra Premium de Energy Software. ¿Sabés cuánta plata se te escapa por noche por papelitos falsos, chicas que se equivocan en la barra o cajas que no cierran bien? Nosotros lo solucionamos TODO desde tu celular. Mirá lo que hacemos por vos: PRIMERO: cada venta genera un CÓDIGO QR INTELIGENTE que se QUEMA SOLITO en un solo uso. ¡Imposible de falsificar! No más colas en puerta, no más gente que entra sin pagar. SEGUNDO: ESCÁNER EXCLUSIVO PARA TUS BARRAS. La chica escanea el QR del cliente y el sistema le dice EN VOZ ALTA y en PANTALLA GIGANTE: ENTREGAR 2 FERNET, 3 CERVEZAS, 1 VODKA. CERO ERRORES. CERO QUEJAS. CERO MERCANCÍA QUE DESAPARECE. TERCERO: controlás HASTA 5 BARRAS en simultáneo, cada una con su propio stock, su propia caja y su propio corte de turno. CUARTO: BÓVEDA DIGITAL con foto obligatoria de cada transferencia. No más 'no me llegó la transferencia'. QUINTO: PANEL DE DUEÑO en tiempo real. Estés donde estás, ves cuánto entró en efectivo, cuánto en transferencia, qué se vendió más y quién cerró bien. Y lo mejor de todo: NO NECESITÁS COMPRAR NINGUNA MÁQUINA CARA. Funciona con los celulares que ya tienen tus empleados. SEXTO Y LA JOYA DE LA CORONA: El sistema incluye un creador de Banners. Lo imprimís, lo ponés en la fila, los chicos lo escanean y te abren WhatsApp automáticamente pidiendo su entrada. Armás una base de datos gigante a costo cero y la fila vuela. VIP CLUB: tu boliche, al nivel de DIOS. ¡Probalo ya!";
             s.lang = 'es-AR'; 
             s.rate = 1.0; 
             s.pitch = 1.05;
@@ -1928,7 +1943,6 @@
                     return; 
                 }
                 
-                // --- NUEVO: GUARDAMOS EL VENCIMIENTO PARA EL CONTADOR ---
                 window.vencimiento = cd.expires_at;
 
                 cUser = data.local; cPin = pin; cAdminPin = data.admin_pin || "0000";
@@ -2146,7 +2160,6 @@
             const titleEl = document.getElementById('admin-header-title');
             titleEl.innerText = cUser ? `👑 ${cUser.toUpperCase()}` : '👑 PANEL DUEÑO';
 
-            // --- NUEVO: Calcular días restantes visualmente ---
             if (window.vencimiento) {
                 const diasRestantes = Math.ceil((window.vencimiento - Date.now()) / (1000 * 60 * 60 * 24));
                 
@@ -2156,7 +2169,6 @@
                     titleEl.innerHTML += ` <span style="background:rgba(0,240,255,0.1); border:1px solid var(--neon-cyan); color:var(--neon-cyan); padding:2px 8px; border-radius:8px; font-size:0.6rem; margin-left:10px; vertical-align: middle;">⏱️ ${diasRestantes} DÍAS</span>`;
                 }
             }
-            // --------------------------------------------------
 
             const { tabs, gEfe, gTra, gQty } = computeBoards();
             const total = gEfe + gTra;
@@ -2324,7 +2336,6 @@
             
             const tid = 'VIP-' + Date.now().toString().slice(-7);
             const safeOrigin = currentBarraId.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-            // Fix: Mantenemos el nombre completo original para que se vea bien al escanear
             const safeProduct = selProd.name; 
             
             const ticketData = { id: tid, qty: qty, product: safeProduct, category: selProd.category, amount: val, origin: safeOrigin, method: method, time: getTimeStr(), date: getDateStr() };
@@ -2368,21 +2379,19 @@
         }
         
         /* ============================================================
-           🆕 ESCÁNER DE PUERTA Y BARRA (¡Arreglado el parseo de datos!)
+           🆕 ESCÁNER DE PUERTA Y BARRA
            ============================================================ */
         function iniciarEscaner() { if (html5QrcodeScanner) return; html5QrcodeScanner = new Html5Qrcode("reader"); html5QrcodeScanner.start({ facingMode: "environment" }, { fps: 12, qrbox: { width: 260, height: 260 } }, decodedText => validarTicketPuerta(decodedText), () => {}).catch(err => { showPremiumAlert("ERROR CÁMARA", "Aceptá los permisos."); html5QrcodeScanner = null; }); }
         function detenerEscaner() { if (html5QrcodeScanner) { html5QrcodeScanner.stop().then(() => { html5QrcodeScanner = null; go('view-roles'); }); } else go('view-roles'); }
         
-        // CORRECCIÓN 1: El parseo ahora lee SIEMPRE el estado real de la base de datos en tiempo real
         function parseTicketData(raw) {
             let ticketId = raw.trim();
             try {
                 if (ticketId.startsWith('{')) {
                     const parsed = JSON.parse(ticketId);
-                    ticketId = parsed.id; // Extraemos solo el ID del texto escaneado
+                    ticketId = parsed.id; 
                 }
             } catch(e) { }
-            // Buscamos el ticket en la BD para traer su estado real ("ACTIVO" o "USADO")
             return dbState.tickets.find(x => x.id === ticketId) || null;
         }
         
@@ -2398,7 +2407,6 @@
         function iniciarEscanerBarra() { if (html5QrBarra) return; html5QrBarra = new Html5Qrcode("reader-barra"); html5QrBarra.start({ facingMode: "environment" }, { fps: 12, qrbox: { width: 280, height: 280 } }, decodedText => validarTicketBarra(decodedText), () => {}).catch(err => { showPremiumAlert("ERROR CÁMARA", "Aceptá los permisos."); html5QrBarra = null; }); }
         function detenerEscanerBarra() { if (html5QrBarra) { html5QrBarra.stop().then(() => { html5QrBarra = null; go('view-roles'); }); } else go('view-roles'); }
         
-        // CORRECCIÓN 2: Interfaz de barra que muestra CLARAMENTE qué producto entregar y lo quema automático
         function validarTicketBarra(raw) {
             html5QrBarra.pause(); const data = parseTicketData(raw); const box = document.getElementById('alerta-content'); if (!box) return;
             if (!data) { box.innerHTML = `<div class="scanner-big-icon neon-red">⛔</div><h2 class="font-display neon-red" style="font-size:1.8rem;">CÓDIGO INVÁLIDO</h2><button class="btn btn-purple" onclick="cerrarAlertaBarra()">VOLVER A ESCANEAR</button>`; box.style.borderColor = 'rgba(255,45,85,0.4)'; }
@@ -2429,7 +2437,7 @@
         async function syncToCloud() {
             if (!cUser) return;
             saveLocalDB(); renderAdmin();
-            if (!navigator.onLine) return; // Frena si no hay internet
+            if (!navigator.onLine) return; 
             const payload = { logs: dbState.logs, tickets: dbState.tickets, inventory: dbState.inventory, barras: dbState.barras };
             try {
                 const { data } = await _supabase.from('usuarios').select('app_data').eq('local', cUser).single();
@@ -2443,22 +2451,18 @@
         }
 
         /* ========== COMPARTIR QR A PANTALLA COMPLETA ========== */
-        // CORRECCIÓN 3: Toma una foto en HD de toda la pantalla y la comparte
         async function compartirQR() {
             try {
                 const targetNode = document.getElementById('modal-qr-content');
                 const btnContainer = document.getElementById('qr-buttons');
                 
-                // Ocultamos los botones temporalmente para que no salgan en la foto
                 btnContainer.style.display = 'none';
 
-                // Generamos la captura de toda la tarjeta de cristal
                 const canvas = await html2canvas(targetNode, {
                     backgroundColor: '#0a0a14', 
-                    scale: 2 // Alta calidad
+                    scale: 2 
                 });
 
-                // Volvemos a mostrar los botones
                 btnContainer.style.display = 'block';
 
                 const dataUrl = canvas.toDataURL('image/png');
@@ -2468,8 +2472,9 @@
 
                 if (navigator.canShare && navigator.canShare({ files: [file] })) {
                     await navigator.share({
-                        title: 'Ticket VIP CLUB',
-                        text: 'Acá tenés tu ticket de acceso/consumición.',
+                        title: 'Pase VIP CLUB',
+                        // === NUEVO TEXTO DE WHATSAPP ===
+                        text: '✨ ¡Acá tenés tu Pase VIP para esta noche! 🥂 Mostrale este código al portero desde tu pantalla (acordate que es de un solo uso). ¡Que disfrutes la fiesta!',
                         files: [file]
                     });
                 } else {
@@ -2480,6 +2485,46 @@
                 const btnContainer = document.getElementById('qr-buttons');
                 if (btnContainer) btnContainer.style.display = 'block';
             }
+        }
+
+        /* ========== NUEVO: GENERADOR DE BANNER WHATSAPP ========== */
+        function generarQRBanner() {
+            const num = (document.getElementById('banner-wa-number').value || '').trim();
+            if(!num) return showPremiumAlert("DATOS FALTANTES", "Ingresá el número de WhatsApp del boliche primero.");
+            
+            const link = `https://wa.me/${num}?text=Hola,%20quiero%20mi%20entrada`;
+            const container = document.getElementById('banner-qr-canvas');
+            container.innerHTML = '';
+            
+            new QRCode(container, {
+                text: link,
+                width: 400,
+                height: 400,
+                colorDark: '#000000',
+                colorLight: '#ffffff',
+                correctLevel: QRCode.CorrectLevel.H
+            });
+            
+            document.getElementById('banner-qr-box').style.display = 'block';
+        }
+
+        function descargarQRBanner() {
+            const container = document.getElementById('banner-qr-canvas');
+            const canvas = container.querySelector('canvas');
+            const img = container.querySelector('img');
+            
+            let dataUrl = '';
+            if (canvas && canvas.style.display !== 'none') dataUrl = canvas.toDataURL('image/png');
+            else if (img && img.src) dataUrl = img.src;
+            
+            if(!dataUrl) return showPremiumAlert("ERROR", "No se pudo generar la imagen del Banner.");
+            
+            const a = document.createElement('a');
+            a.href = dataUrl;
+            a.download = `VIP-Banner-Puerta-${Date.now()}.png`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
         }
 
         /* ========== INSTALACIÓN DE PWA ========== */
@@ -2516,4 +2561,3 @@
     </script>
 </body>
 </html>
-
