@@ -1934,12 +1934,18 @@
             let pin   = (document.getElementById('login-pin').value||'').trim();
             if (!local || !pin) return showPremiumAlert("DATOS FALTANTES", "Ingresá sucursal y PIN.");
 
+            // 1. CARGAR DATOS LOCALES ANTES DE CONECTAR PARA EVITAR QUE SE BORREN
+            const savedUser = localStorage.getItem('vip_cUser');
+            if (local === savedUser) {
+                loadLocalDB();
+            } else {
+                dbState = { logs: [], tickets: [], inventory: [], barras: [] };
+            }
+
             if (!navigator.onLine) {
-                const savedUser = localStorage.getItem('vip_cUser');
                 const savedPin = localStorage.getItem('vip_cPin');
                 if (local === savedUser && pin === savedPin) {
                     cUser = local; cPin = pin; cAdminPin = localStorage.getItem('vip_cAdminPin') || "0000";
-                    loadLocalDB();
                     go('view-roles');
                     renderAdmin();
                     return showPremiumAlert("MODO OFFLINE", "Iniciaste sesión sin internet. Los datos se guardarán en tu celular.", "success");
@@ -1961,10 +1967,9 @@
                 }
                 
                 window.vencimiento = cd.expires_at;
-
                 cUser = data.local; cPin = pin; cAdminPin = data.admin_pin || "0000";
                 
-                // MÁGIA: LEEMOS DIRECTAMENTE DESDE TUS TABLAS SQL SEPARADAS
+                // MÁGIA: LEEMOS DESDE SQL, PERO CON PRIORIDAD A LO QUE YA CARGAMOS EN MEMORIA LOCAL
                 try {
                     const [resBarras, resInv, resTickets, resLogs] = await Promise.all([
                         _supabase.from('barras').select('nombre').eq('local_id', cUser),
@@ -1973,13 +1978,26 @@
                         _supabase.from('logs').select('*').eq('local_id', cUser).order('created_at', { ascending: false }).limit(300)
                     ]);
                     
-                    dbState.barras = resBarras.data && resBarras.data.length ? resBarras.data.map(b => b.nombre) : ["Barra 1"];
-                    dbState.inventory = (resInv.data || []).map(i => ({ id: i.id, name: i.name, price: Number(i.price), stock: Number(i.stock), category: i.category, barId: i.bar_id }));
-                    dbState.tickets = (resTickets.data || []).map(t => ({ id: t.id, qty: Number(t.qty), product: t.product, category: t.category, amount: Number(t.amount), origin: t.origin, method: t.method, status: t.status, date: t.date, time: t.time }));
-                    dbState.logs = (resLogs.data || []).map(l => ({ id: l.id, type: l.type, method: l.method, amount: Number(l.amount), description: l.description, origin: l.origin, foto: l.foto_base64, ticketId: l.ticketId, date: l.date, time: l.time }));
+                    // SÓLO REEMPLAZAR SI SUPABASE TIENE DATOS. SI ESTÁ VACÍO, NO BORRAR LO LOCAL.
+                    if (resBarras && resBarras.data && resBarras.data.length > 0) {
+                        dbState.barras = resBarras.data.map(b => b.nombre);
+                    } else if (!dbState.barras || dbState.barras.length === 0) {
+                        dbState.barras = ["Barra 1"];
+                    }
+
+                    if (resInv && resInv.data && resInv.data.length > 0) {
+                        dbState.inventory = resInv.data.map(i => ({ id: i.id, name: i.name, price: Number(i.price), stock: Number(i.stock), category: i.category, barId: i.bar_id }));
+                    }
+
+                    if (resTickets && resTickets.data && resTickets.data.length > 0) {
+                        dbState.tickets = resTickets.data.map(t => ({ id: t.id, qty: Number(t.qty), product: t.product, category: t.category, amount: Number(t.amount), origin: t.origin, method: t.method, status: t.status, date: t.date, time: t.time }));
+                    }
+
+                    if (resLogs && resLogs.data && resLogs.data.length > 0) {
+                        dbState.logs = resLogs.data.map(l => ({ id: l.id, type: l.type, method: l.method, amount: Number(l.amount), description: l.description, origin: l.origin, foto: l.foto_base64, ticketId: l.ticket_id || l.ticketId, date: l.date, time: l.time }));
+                    }
                 } catch(e) {
-                    console.log("Aviso: Cargando fallback por si las tablas están vacías");
-                    dbState.barras = ["Barra 1"]; dbState.inventory = []; dbState.tickets = []; dbState.logs = [];
+                    console.log("Aviso: Error conectando a las tablas. Manteniendo datos locales.", e);
                 }
 
                 localStorage.setItem('vip_cUser', cUser);
@@ -1987,6 +2005,9 @@
                 localStorage.setItem('vip_cAdminPin', cAdminPin);
                 saveLocalDB();
                 
+                // Forzamos la subida de los datos locales a Supabase para rellenar vacíos.
+                syncToCloud();
+
                 document.getElementById('login-pin').value = '';
                 go('view-roles');
                 renderAdmin();
