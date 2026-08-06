@@ -2387,12 +2387,23 @@
             
             syncToCloud(); 
             
-            const qrPayload = JSON.stringify(ticketData);
+            const qrPayload = tid;
             const qa = document.getElementById('qr-amount'); const qi = document.getElementById('qr-product-info'); const qc = document.getElementById('qr-container'); const mq = document.getElementById('modal-qr');
             if (qa) qa.innerText = `$${fmt(val)} · ${method}`;
             if (qi) qi.innerText = `${qty}x ${selProd.name.toUpperCase()} · ${currentBarraId.toUpperCase()}`;
-            if (qc) { qc.innerHTML = ''; new QRCode(qc, { text: qrPayload, width: 230, height: 230, colorDark: '#005566', colorLight: '#ffffff', correctLevel: QRCode.CorrectLevel.L }); }
+            
             if (mq) mq.style.display = 'flex';
+            if (qc) { 
+                qc.innerHTML = ''; 
+                new QRCode(qc, { 
+                    text: qrPayload, 
+                    width: 250, 
+                    height: 250, 
+                    colorDark: '#ff0080', 
+                    colorLight: '#ffffff', 
+                    correctLevel: QRCode.CorrectLevel.M 
+                }); 
+            }
         }
         
         /* ========== CIERRE TURNO ========== */
@@ -2424,42 +2435,106 @@
         }
         
         /* ============================================================
-           🆕 ESCÁNER DE PUERTA Y BARRA
+           🆕 ESCÁNER DE PUERTA Y BARRA (CON REVISIÓN EN TIEMPO REAL)
            ============================================================ */
         function iniciarEscaner() { if (html5QrcodeScanner) return; html5QrcodeScanner = new Html5Qrcode("reader"); html5QrcodeScanner.start({ facingMode: "environment" }, { fps: 12, qrbox: { width: 260, height: 260 } }, decodedText => validarTicketPuerta(decodedText), () => {}).catch(err => { showPremiumAlert("ERROR CÁMARA", "Aceptá los permisos."); html5QrcodeScanner = null; }); }
         function detenerEscaner() { if (html5QrcodeScanner) { html5QrcodeScanner.stop().then(() => { html5QrcodeScanner = null; go('view-roles'); }); } else go('view-roles'); }
         
-        function parseTicketData(raw) {
-            let ticketId = raw.trim();
-            try {
-                if (ticketId.startsWith('{')) {
-                    const parsed = JSON.parse(ticketId);
-                    ticketId = parsed.id; 
-                }
-            } catch(e) { }
-            return dbState.tickets.find(x => x.id === ticketId) || null;
-        }
-        
-        function validarTicketPuerta(raw) {
-            html5QrcodeScanner.pause(); const data = parseTicketData(raw); const box = document.getElementById('alerta-content'); if (!box) return;
-            if (!data) { box.innerHTML = `<div style="font-size:4.5rem;line-height:1;">⛔</div><h2 class="font-display neon-red" style="font-size:1.8rem;margin:15px 0;">QR INVÁLIDO</h2><button class="btn btn-purple" onclick="cerrarAlerta()">VOLVER A ESCANEAR</button>`; box.style.borderColor = 'rgba(255,45,85,0.4)'; } 
-            else if (data.status !== 'ACTIVO') { box.innerHTML = `<div style="font-size:4.5rem;line-height:1;">🔥</div><h2 class="font-display neon-red" style="font-size:1.6rem;margin:15px 0;">QR YA USADO</h2><button class="btn btn-purple" onclick="cerrarAlerta()">VOLVER A ESCANEAR</button>`; box.style.borderColor = 'rgba(255,45,85,0.4)'; } 
-            else if (data.category !== 'entrada') { box.innerHTML = `<div style="font-size:4.5rem;line-height:1;">🍸</div><h2 class="font-display neon-cyan" style="font-size:1.5rem;margin:15px 0;">NO ES ENTRADA</h2><p style="color:var(--text-soft);font-size:0.95rem;">Retirar en <b class="neon-cyan">${data.origin}</b>:</p><button class="btn btn-cyan" onclick="cerrarAlerta()">VOLVER A ESCANEAR</button>`; box.style.borderColor = 'rgba(0,240,255,0.4)'; } 
-            else { const idx = dbState.tickets.findIndex(t => t.id === data.id); if (idx >= 0) dbState.tickets[idx].status = 'USADO'; syncToCloud(); box.innerHTML = `<div style="font-size:4.5rem;line-height:1;">✅</div><h2 class="font-display" style="color:var(--neon-green);font-weight:900;font-size:2rem;margin:15px 0;">¡INGRESO VÁLIDO!</h2><p style="font-family:'Orbitron';color:white;font-size:1.1rem;font-weight:900;">${data.product.toUpperCase()}</p><button class="btn btn-cyan" style="margin-top:20px;" onclick="cerrarAlerta()">SIGUIENTE CLIENTE</button>`; box.style.borderColor = 'rgba(0,255,148,0.4)'; }
+        async function validarTicketPuerta(raw) {
+            html5QrcodeScanner.pause();
+            const box = document.getElementById('alerta-content'); if (!box) return;
+
+            // UI de carga temporal
+            box.innerHTML = `<div style="padding:40px 0;text-align:center;"><div class="scanner-big-icon neon-cyan">⏳</div><h2 class="font-display neon-cyan" style="font-size:1.5rem;margin-top:10px;">VERIFICANDO...</h2></div>`;
+            box.style.borderColor = 'rgba(0,240,255,0.4)';
             document.getElementById('modal-alerta').style.display = 'flex';
+
+            let ticketId = raw.trim();
+            try { if (ticketId.startsWith('{')) ticketId = JSON.parse(ticketId).id; } catch(e) { }
+
+            // Buscar en memoria del teléfono
+            let data = dbState.tickets.find(x => x.id === ticketId);
+
+            // Magia Quirúrgica: Si el ticket no está en este celular, lo busca rapidísimo en Supabase
+            if (navigator.onLine) {
+                try {
+                    const { data: dbTkt } = await _supabase.from('tickets').select('*').eq('id', ticketId).eq('local_id', cUser).single();
+                    if (dbTkt) {
+                        if (!data) {
+                            data = { id: dbTkt.id, qty: Number(dbTkt.qty), product: dbTkt.product, category: dbTkt.category, amount: Number(dbTkt.amount), origin: dbTkt.origin, method: dbTkt.method, status: dbTkt.status, date: dbTkt.date, time: dbTkt.time };
+                            dbState.tickets.push(data); // Lo guarda en el celu para futuras lecturas
+                        } else {
+                            data.status = dbTkt.status; // Actualiza el estado al real
+                        }
+                    }
+                } catch(e) { }
+            }
+
+            if (!data) {
+                box.innerHTML = `<div class="scanner-big-icon neon-red">⛔</div><h2 class="font-display neon-red" style="font-size:1.8rem;margin:15px 0;">QR INVÁLIDO</h2><p style="color:var(--text-soft);font-size:0.9rem;margin-bottom:15px;">Ticket no encontrado en la base de datos.</p><button class="btn btn-purple" onclick="cerrarAlerta()">VOLVER A ESCANEAR</button>`; box.style.borderColor = 'rgba(255,45,85,0.4)';
+            } else if (data.status !== 'ACTIVO') {
+                box.innerHTML = `<div class="scanner-big-icon neon-red">🔥</div><h2 class="font-display neon-red" style="font-size:1.6rem;margin:15px 0;">QR YA USADO</h2><p style="color:var(--text-soft);font-size:0.9rem;margin-bottom:15px;">Este ticket ya ingresó antes.</p><button class="btn btn-purple" onclick="cerrarAlerta()">VOLVER A ESCANEAR</button>`; box.style.borderColor = 'rgba(255,45,85,0.4)';
+            } else if (data.category !== 'entrada') {
+                box.innerHTML = `<div class="scanner-big-icon neon-cyan">🍸</div><h2 class="font-display neon-cyan" style="font-size:1.5rem;margin:15px 0;">NO ES ENTRADA</h2><p style="color:var(--text-soft);font-size:0.95rem;">El cliente debe retirar esto en <b class="neon-cyan">${data.origin}</b>:</p><p style="color:white;font-weight:bold;margin-bottom:15px;">${data.qty}x ${data.product}</p><button class="btn btn-cyan" onclick="cerrarAlerta()">VOLVER A ESCANEAR</button>`; box.style.borderColor = 'rgba(0,240,255,0.4)';
+            } else {
+                // QUEMAR TICKET DE ENTRADA
+                data.status = 'USADO';
+                if (navigator.onLine) _supabase.from('tickets').update({ status: 'USADO' }).eq('id', data.id);
+                syncToCloud();
+
+                box.innerHTML = `<div class="scanner-big-icon neon-green">✅</div><h2 class="font-display" style="color:var(--neon-green);font-weight:900;font-size:2rem;margin:15px 0;">¡INGRESO VÁLIDO!</h2><p style="font-family:'Orbitron';color:white;font-size:1.2rem;font-weight:900;">${data.qty}x ${data.product.toUpperCase()}</p><button class="btn btn-cyan" style="margin-top:20px;" onclick="cerrarAlerta()">SIGUIENTE CLIENTE</button>`; box.style.borderColor = 'rgba(0,255,148,0.4)';
+            }
         }
-        
+
         function iniciarEscanerBarra() { if (html5QrBarra) return; html5QrBarra = new Html5Qrcode("reader-barra"); html5QrBarra.start({ facingMode: "environment" }, { fps: 12, qrbox: { width: 280, height: 280 } }, decodedText => validarTicketBarra(decodedText), () => {}).catch(err => { showPremiumAlert("ERROR CÁMARA", "Aceptá los permisos."); html5QrBarra = null; }); }
         function detenerEscanerBarra() { if (html5QrBarra) { html5QrBarra.stop().then(() => { html5QrBarra = null; go('view-roles'); }); } else go('view-roles'); }
         
-        function validarTicketBarra(raw) {
-            html5QrBarra.pause(); const data = parseTicketData(raw); const box = document.getElementById('alerta-content'); if (!box) return;
-            if (!data) { box.innerHTML = `<div class="scanner-big-icon neon-red">⛔</div><h2 class="font-display neon-red" style="font-size:1.8rem;">CÓDIGO INVÁLIDO</h2><button class="btn btn-purple" onclick="cerrarAlertaBarra()">VOLVER A ESCANEAR</button>`; box.style.borderColor = 'rgba(255,45,85,0.4)'; }
-            else if (data.status !== 'ACTIVO') { box.innerHTML = `<div class="scanner-big-icon neon-red">🔥</div><h2 class="font-display neon-red" style="font-size:1.6rem;">¡QR YA QUEMADO!</h2><button class="btn btn-purple" onclick="cerrarAlertaBarra()">VOLVER A ESCANEAR</button>`; box.style.borderColor = 'rgba(255,45,85,0.4)'; }
-            else if (data.category === 'entrada') { box.innerHTML = `<div class="scanner-big-icon neon-purple">🎟️</div><h2 class="font-display neon-purple" style="font-size:1.6rem;">ES UNA ENTRADA</h2><button class="btn btn-purple" onclick="cerrarAlertaBarra()">VOLVER A ESCANEAR</button>`; box.style.borderColor = 'rgba(180,0,255,0.4)'; }
-            else { 
-                const idx = dbState.tickets.findIndex(t => t.id === data.id); if (idx >= 0) dbState.tickets[idx].status = 'ENTREGADO'; syncToCloud(); 
-                try { const voz = new SpeechSynthesisUtterance(); voz.text = `ENTREGAR: ${data.qty} ${data.product.toUpperCase()}`; voz.lang = 'es-AR'; window.speechSynthesis.cancel(); window.speechSynthesis.speak(voz); } catch(e){} 
+        async function validarTicketBarra(raw) {
+            html5QrBarra.pause();
+            const box = document.getElementById('alerta-content'); if (!box) return;
+
+            // UI de carga temporal
+            box.innerHTML = `<div style="padding:40px 0;text-align:center;"><div class="scanner-big-icon neon-cyan">⏳</div><h2 class="font-display neon-cyan" style="font-size:1.5rem;margin-top:10px;">VERIFICANDO...</h2></div>`;
+            box.style.borderColor = 'rgba(0,240,255,0.4)';
+            document.getElementById('modal-alerta').style.display = 'flex';
+
+            let ticketId = raw.trim();
+            try { if (ticketId.startsWith('{')) ticketId = JSON.parse(ticketId).id; } catch(e) { }
+
+            // Buscar en memoria del teléfono
+            let data = dbState.tickets.find(x => x.id === ticketId);
+
+            // Buscar en la Nube
+            if (navigator.onLine) {
+                try {
+                    const { data: dbTkt } = await _supabase.from('tickets').select('*').eq('id', ticketId).eq('local_id', cUser).single();
+                    if (dbTkt) {
+                        if (!data) {
+                            data = { id: dbTkt.id, qty: Number(dbTkt.qty), product: dbTkt.product, category: dbTkt.category, amount: Number(dbTkt.amount), origin: dbTkt.origin, method: dbTkt.method, status: dbTkt.status, date: dbTkt.date, time: dbTkt.time };
+                            dbState.tickets.push(data);
+                        } else {
+                            data.status = dbTkt.status;
+                        }
+                    }
+                } catch(e) {}
+            }
+
+            if (!data) {
+                box.innerHTML = `<div class="scanner-big-icon neon-red">⛔</div><h2 class="font-display neon-red" style="font-size:1.8rem;">CÓDIGO INVÁLIDO</h2><p style="color:var(--text-soft);font-size:0.9rem;margin:10px 0 15px;">Ticket no encontrado.</p><button class="btn btn-purple" onclick="cerrarAlertaBarra()">VOLVER A ESCANEAR</button>`; box.style.borderColor = 'rgba(255,45,85,0.4)';
+            }
+            else if (data.status !== 'ACTIVO') {
+                box.innerHTML = `<div class="scanner-big-icon neon-red">🔥</div><h2 class="font-display neon-red" style="font-size:1.6rem;">¡QR YA QUEMADO!</h2><p style="color:var(--text-soft);font-size:0.9rem;margin:10px 0 15px;">Ya se entregó este pedido.</p><button class="btn btn-purple" onclick="cerrarAlertaBarra()">VOLVER A ESCANEAR</button>`; box.style.borderColor = 'rgba(255,45,85,0.4)';
+            }
+            else if (data.category === 'entrada') {
+                box.innerHTML = `<div class="scanner-big-icon neon-purple">🎟️</div><h2 class="font-display neon-purple" style="font-size:1.6rem;">ES UNA ENTRADA</h2><p style="color:var(--text-soft);font-size:0.9rem;margin:10px 0 15px;">Este QR es de puerta, no de barra.</p><button class="btn btn-purple" onclick="cerrarAlertaBarra()">VOLVER A ESCANEAR</button>`; box.style.borderColor = 'rgba(180,0,255,0.4)';
+            }
+            else {
+                // QUEMAR BEBIDA DE BARRA
+                data.status = 'ENTREGADO';
+                if (navigator.onLine) _supabase.from('tickets').update({ status: 'ENTREGADO' }).eq('id', data.id);
+                syncToCloud();
+
+                try { const voz = new SpeechSynthesisUtterance(); voz.text = `ENTREGAR: ${data.qty} ${data.product.toUpperCase()}`; voz.lang = 'es-AR'; window.speechSynthesis.cancel(); window.speechSynthesis.speak(voz); } catch(e){}
                 box.innerHTML = `
                     <div class="scanner-big-icon neon-green">✅</div>
                     <h2 class="font-display" style="color:var(--neon-green);">¡CÓDIGO VÁLIDO!</h2>
@@ -2469,10 +2544,9 @@
                         <div class="entregar-cantidad">${data.qty} UNIDADES</div>
                     </div>
                     <button class="btn btn-cyan" style="margin-top:20px;" onclick="cerrarAlertaBarra()">SIGUIENTE CLIENTE</button>
-                `; 
-                box.style.borderColor = 'rgba(0,255,148,0.4)'; 
+                `;
+                box.style.borderColor = 'rgba(0,255,148,0.4)';
             }
-            document.getElementById('modal-alerta').style.display = 'flex';
         }
         
         function cerrarAlerta() { document.getElementById('modal-alerta').style.display = 'none'; if (html5QrcodeScanner) html5QrcodeScanner.resume(); }
@@ -2670,3 +2744,4 @@
     </script>
 </body>
 </html>
+
