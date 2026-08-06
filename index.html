@@ -1976,7 +1976,7 @@
                     dbState.barras = resBarras.data && resBarras.data.length ? resBarras.data.map(b => b.nombre) : ["Barra 1"];
                     dbState.inventory = (resInv.data || []).map(i => ({ id: i.id, name: i.name, price: Number(i.price), stock: Number(i.stock), category: i.category, barId: i.bar_id }));
                     dbState.tickets = (resTickets.data || []).map(t => ({ id: t.id, qty: Number(t.qty), product: t.product, category: t.category, amount: Number(t.amount), origin: t.origin, method: t.method, status: t.status, date: t.date, time: t.time }));
-                    dbState.logs = (resLogs.data || []).map(l => ({ id: l.id, type: l.type, method: l.method, amount: Number(l.amount), description: l.description, origin: l.origin, foto: l.foto_base64, ticketId: l.ticketId, date: l.date, time: l.time }));
+                    dbState.logs = (resLogs.data || []).map(l => ({ id: l.id, type: l.type, method: l.method, amount: Number(l.amount), description: l.description, origin: l.origin, foto: l.foto_base64, ticketId: l.ticket_id, date: l.date, time: l.time }));
                 } catch(e) {
                     console.log("Aviso: Cargando fallback por si las tablas están vacías");
                     dbState.barras = ["Barra 1"]; dbState.inventory = []; dbState.tickets = []; dbState.logs = [];
@@ -2447,7 +2447,7 @@
             // Magia Quirúrgica: Si el ticket no está en este celular, lo busca rapidísimo en Supabase
             if (navigator.onLine) {
                 try {
-                    const { data: dbTkt } = await _supabase.from('tickets').select('*').eq('id', ticketId).eq('local_id', cUser).single();
+                    const { data: dbTkt } = await _supabase.from('tickets').select('*').eq('id', ticketId).eq('local_id', cUser).maybeSingle();
                     if (dbTkt) {
                         if (!data) {
                             data = { id: dbTkt.id, qty: Number(dbTkt.qty), product: dbTkt.product, category: dbTkt.category, amount: Number(dbTkt.amount), origin: dbTkt.origin, method: dbTkt.method, status: dbTkt.status, date: dbTkt.date, time: dbTkt.time };
@@ -2496,7 +2496,7 @@
             // Buscar en la Nube
             if (navigator.onLine) {
                 try {
-                    const { data: dbTkt } = await _supabase.from('tickets').select('*').eq('id', ticketId).eq('local_id', cUser).single();
+                    const { data: dbTkt } = await _supabase.from('tickets').select('*').eq('id', ticketId).eq('local_id', cUser).maybeSingle();
                     if (dbTkt) {
                         if (!data) {
                             data = { id: dbTkt.id, qty: Number(dbTkt.qty), product: dbTkt.product, category: dbTkt.category, amount: Number(dbTkt.amount), origin: dbTkt.origin, method: dbTkt.method, status: dbTkt.status, date: dbTkt.date, time: dbTkt.time };
@@ -2576,9 +2576,9 @@
                 }
 
                 // 2. Preparar inyección a tablas SQL Separadas
-                const invPayload = dbState.inventory.map(i => ({ id: i.id, local_id: cUser, name: i.name, price: i.price, stock: i.stock, category: i.category, bar_id: i.barId }));
-                const tktPayload = dbState.tickets.map(t => ({ id: t.id, local_id: cUser, qty: t.qty, product: t.product, category: t.category, amount: t.amount, origin: t.origin, method: t.method, status: t.status, date: t.date, time: t.time }));
-                const logPayload = dbState.logs.map(l => ({ id: l.id, local_id: cUser, type: l.type, method: l.method, amount: l.amount, description: l.description, origin: l.origin, foto_base64: l.foto, ticket_id: l.ticketId, date: l.date, time: l.time }));
+                const invPayload = dbState.inventory.map(i => ({ id: i.id, local_id: cUser, name: i.name, price: Number(i.price), stock: Number(i.stock), category: i.category, bar_id: i.barId }));
+                const tktPayload = dbState.tickets.map(t => ({ id: t.id, local_id: cUser, qty: Number(t.qty), product: t.product, category: t.category, amount: Number(t.amount), origin: t.origin, method: t.method, status: t.status, date: t.date, time: t.time }));
+                const logPayload = dbState.logs.map(l => ({ id: l.id, local_id: cUser, type: l.type, method: l.method, amount: Number(l.amount), description: l.description, origin: l.origin, foto_base64: l.foto, ticket_id: l.ticketId, date: l.date, time: l.time }));
 
                 // 3. Ejecutar UPSERT a SQL
                 if (invPayload.length) await _supabase.from('inventario').upsert(invPayload);
@@ -2730,6 +2730,19 @@
                 }).catch(err => console.log('Error Service Worker', err));
             });
         }
+
+        // AUTO-LOGIN AL ENTRAR A LA APP
+        window.addEventListener('DOMContentLoaded', () => {
+            const savedUser = localStorage.getItem('vip_cUser');
+            const savedPin = localStorage.getItem('vip_cPin');
+            if (savedUser && savedPin) {
+                document.getElementById('login-local').value = savedUser;
+                document.getElementById('login-pin').value = savedPin;
+                // Para que salte derecho, descomenta la siguiente línea:
+                // executeLogin();
+            }
+        });
     </script>
 </body>
 </html>
+
