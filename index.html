@@ -2272,17 +2272,26 @@
 
         async function eliminarBarra(n) {
             if (!confirm(`¿Eliminar "${n}"? Se borrarán sus productos.`)) return;
+            
+            if (!navigator.onLine) {
+                return showPremiumAlert("SIN INTERNET", "Necesitás conexión para eliminar barras de forma permanente.");
+            }
+
+            const { error } = await _supabase.from('barras').delete().eq('local_id', cUser).eq('nombre', n);
+            
+            if (error) {
+                console.error("Error al borrar barra en Supabase:", error);
+                return showPremiumAlert("ERROR EN LA NUBE", "No se pudo eliminar. Verificá los permisos de tu base de datos.");
+            }
+
+            await _supabase.from('inventario').delete().eq('local_id', cUser).eq('bar_id', n);
+
             dbState.barras = dbState.barras.filter(b => b !== n);
             dbState.inventory = dbState.inventory.filter(i => !(i.category === 'bebida' && i.barId === n));
+            
             if (activeBarraCarga === n) activeBarraCarga = dbState.barras[0] || '';
             if (activeHistorialSector === n) activeHistorialSector = 'Boletería';
             
-            if(navigator.onLine) {
-                try { 
-                    await _supabase.from('barras').delete().eq('local_id', cUser).eq('nombre', n); 
-                    await _supabase.from('inventario').delete().eq('local_id', cUser).eq('bar_id', n); 
-                } catch(e){}
-            }
             saveLocalDB();
             renderAdmin();
         }
@@ -2360,13 +2369,24 @@
 
         async function removeProduct(id) {
             if (!confirm("¿Eliminar producto?")) return;
-            dbState.inventory = dbState.inventory.filter(i => i.id !== id);
-            if(navigator.onLine) {
-                try { await _supabase.from('inventario').delete().eq('id', id); } catch(e){}
+
+            if (!navigator.onLine) {
+                return showPremiumAlert("SIN INTERNET", "Necesitás conexión para eliminar productos permanentemente.");
             }
+
+            const { error } = await _supabase.from('inventario').delete().eq('id', id);
+
+            if (error) {
+                console.error("Error al borrar producto en Supabase:", error);
+                return showPremiumAlert("ERROR EN LA NUBE", "No se pudo eliminar el producto.");
+            }
+
+            dbState.inventory = dbState.inventory.filter(i => i.id !== id);
+            
             saveLocalDB();
             renderAdmin();
         }
+
         function verFoto(b64) {
             document.getElementById('receipt-img').src = b64;
             document.getElementById('receipt-modal').style.display = 'flex';
