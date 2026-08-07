@@ -1850,8 +1850,11 @@
             localStorage.setItem('vip_dbState', JSON.stringify(dbState));
         }
 
+        let syncInterval = null; // Variable global para el motor de polling
+
         // === NUEVO: LOGOUT SEGURO ===
         function logout() {
+            if(syncInterval) clearInterval(syncInterval); // Apagamos el motor
             localStorage.removeItem('vip_cUser');
             localStorage.removeItem('vip_cPin');
             location.reload();
@@ -1869,17 +1872,85 @@
         let html5QrcodeScanner = null, html5QrBarra = null;
         let activeBarraCarga = "", activeHistorialSector = "Boletería"; 
 
+        /* ========== MOTOR DE SINCRONIZACIÓN EN SEGUNDO PLANO (POLLING) ========== */
+        async function silentSyncDown() {
+            if(!cUser || !navigator.onLine) return;
+            try {
+                const [resInv, resTickets, resLogs] = await Promise.all([
+                    _supabase.from('inventario').select('*').eq('local_id', cUser),
+                    _supabase.from('tickets').select('*').eq('local_id', cUser),
+                    _supabase.from('logs').select('*').eq('local_id', cUser).order('created_at', { ascending: false }).limit(300)
+                ]);
+
+                let changed = false;
+
+                if (resInv && resInv.data) {
+                    resInv.data.forEach(dbItem => {
+                        const idx = dbState.inventory.findIndex(i => i.id === dbItem.id);
+                        if(idx >= 0) {
+                            if(dbState.inventory[idx].stock !== Number(dbItem.stock)) {
+                                dbState.inventory[idx].stock = Number(dbItem.stock);
+                                changed = true;
+                            }
+                        } else {
+                            dbState.inventory.push({ id: dbItem.id, name: dbItem.name, price: Number(dbItem.price), stock: Number(dbItem.stock), category: dbItem.category, barId: dbItem.bar_id });
+                            changed = true;
+                        }
+                    });
+                }
+                
+                if (resTickets && resTickets.data) {
+                    resTickets.data.forEach(dbTkt => {
+                        const idx = dbState.tickets.findIndex(t => t.id === dbTkt.id);
+                        if (idx === -1) {
+                            dbState.tickets.push({ id: dbTkt.id, qty: Number(dbTkt.qty), product: dbTkt.product, category: dbTkt.category, amount: Number(dbTkt.amount), origin: dbTkt.origin, method: dbTkt.method, status: dbTkt.status, date: dbTkt.date, time: dbTkt.time });
+                            changed = true;
+                        } else if (dbState.tickets[idx].status !== dbTkt.status) {
+                            dbState.tickets[idx].status = dbTkt.status;
+                            changed = true;
+                        }
+                    });
+                }
+
+                if (resLogs && resLogs.data) {
+                    resLogs.data.forEach(dbLog => {
+                        const exists = dbState.logs.find(l => l.id === dbLog.id);
+                        if (!exists) {
+                            dbState.logs.push({ id: dbLog.id, type: dbLog.type, method: dbLog.method, amount: Number(dbLog.amount), description: dbLog.description, origin: dbLog.origin, foto: dbLog.foto_base64, ticketId: dbLog.ticket_id || dbLog.ticketId, date: dbLog.date, time: dbLog.time });
+                            changed = true;
+                        }
+                    });
+                    if(changed) {
+                        dbState.logs.sort((a, b) => {
+                            const dtA = a.date.split('/').reverse().join('') + a.time;
+                            const dtB = b.date.split('/').reverse().join('') + b.time;
+                            return dtB.localeCompare(dtA);
+                        });
+                    }
+                }
+
+                if(changed) {
+                    saveLocalDB();
+                    // Si el dueño está mirando el panel, le actualizamos los números automáticamente
+                    if(document.getElementById('view-admin').classList.contains('active')) {
+                        renderAdmin();
+                    }
+                }
+            } catch(e) {}
+        }
+
         /* ========== HELPER PARA TRAER TICKET DE LA NUBE CON REINTENTOS ========== */
-        async function fetchTicketFromCloud(ticketId, retries = 2) {
+        async function fetchTicketFromCloud(ticketId, retries = 4) {
             for (let i = 0; i <= retries; i++) {
                 try {
                     const { data, error } = await _supabase.from('tickets').select('*').eq('id', ticketId).eq('local_id', cUser).single();
                     if (data) return data;
-                    if (error && error.code !== 'PGRST116') throw error; // PGRST116 es not found, en ese caso devolvemos null sin reintentar
-                    return null; 
+                    if (error && error.code !== 'PGRST116') throw error; 
+                    if (i === retries) return null;
+                    await new Promise(r => setTimeout(r, 1000)); 
                 } catch (e) {
                     if (i === retries) return null; 
-                    await new Promise(r => setTimeout(r, 800)); // Esperar 800ms antes de intentar de nuevo
+                    await new Promise(r => setTimeout(r, 1000)); 
                 }
             }
             return null;
@@ -1925,7 +1996,7 @@
             if (savedUser && savedPin) {
                 document.getElementById('login-local').value = savedUser;
                 document.getElementById('login-pin').value = savedPin;
-                executeLogin(true); // Se salta el botón y carga directo
+                executeLogin(true); 
             }
         });
         
@@ -2020,7 +2091,6 @@
                         _supabase.from('logs').select('*').eq('local_id', cUser).order('created_at', { ascending: false }).limit(300)
                     ]);
                     
-                    // BARRAS
                     if (resBarras && resBarras.data) {
                         resBarras.data.forEach(b => {
                             if (!dbState.barras.includes(b.nombre)) dbState.barras.push(b.nombre);
@@ -2028,7 +2098,6 @@
                     }
                     if (!dbState.barras.length) dbState.barras = ["Barra 1"];
 
-                    // INVENTARIO
                     if (resInv && resInv.data) {
                         resInv.data.forEach(dbItem => {
                             const exists = dbState.inventory.find(i => i.id === dbItem.id);
@@ -2038,19 +2107,17 @@
                         });
                     }
 
-                    // TICKETS
                     if (resTickets && resTickets.data) {
                         resTickets.data.forEach(dbTkt => {
                             const idx = dbState.tickets.findIndex(t => t.id === dbTkt.id);
                             if (idx === -1) {
                                 dbState.tickets.push({ id: dbTkt.id, qty: Number(dbTkt.qty), product: dbTkt.product, category: dbTkt.category, amount: Number(dbTkt.amount), origin: dbTkt.origin, method: dbTkt.method, status: dbTkt.status, date: dbTkt.date, time: dbTkt.time });
                             } else {
-                                dbState.tickets[idx].status = dbTkt.status; // Actualiza el estado real si ya fue escaneado
+                                dbState.tickets[idx].status = dbTkt.status; 
                             }
                         });
                     }
 
-                    // LOGS
                     if (resLogs && resLogs.data) {
                         resLogs.data.forEach(dbLog => {
                             const exists = dbState.logs.find(l => l.id === dbLog.id);
@@ -2058,7 +2125,6 @@
                                 dbState.logs.push({ id: dbLog.id, type: dbLog.type, method: dbLog.method, amount: Number(dbLog.amount), description: dbLog.description, origin: dbLog.origin, foto: dbLog.foto_base64, ticketId: dbLog.ticket_id || dbLog.ticketId, date: dbLog.date, time: dbLog.time });
                             }
                         });
-                        // Ordenar por fecha y hora descendente
                         dbState.logs.sort((a, b) => {
                             const dtA = a.date.split('/').reverse().join('') + a.time;
                             const dtB = b.date.split('/').reverse().join('') + b.time;
@@ -2073,9 +2139,13 @@
                 localStorage.setItem('vip_cPin', cPin);
                 localStorage.setItem('vip_cAdminPin', cAdminPin);
                 
-                // 3. Forzamos la subida de todo a Supabase por si faltaban datos en la nube (ESPERA OBLIGATORIA)
+                // 3. Forzamos la subida de todo a Supabase por si faltaban datos en la nube
                 saveLocalDB();
                 await syncToCloud();
+
+                // INICIAMOS EL MOTOR DE SINCRONIZACIÓN AUTOMÁTICA
+                if(syncInterval) clearInterval(syncInterval);
+                syncInterval = setInterval(silentSyncDown, 10000); // 10 Segundos
 
                 document.getElementById('login-pin').value = '';
                 if(btn) { btn.innerText = 'INICIAR SESIÓN'; btn.disabled = false; }
@@ -2493,7 +2563,6 @@
             let qty = 1; if (expr.includes('*')) { const ps = expr.split('*'); const n = parseFloat(ps[ps.length - 1]); if (!isNaN(n) && n > 0) qty = n; }
             if (selProd.id !== 'GEN-ENT') { const idx = dbState.inventory.findIndex(i => i.id === selProd.id); if (idx >= 0) dbState.inventory[idx].stock = Math.max(0, (dbState.inventory[idx].stock||0) - qty); }
             
-            // FIX 1: generateUUID() para que el ID sea matemáticamente único y nunca colisione.
             const tid = generateUUID();
             const safeOrigin = currentBarraId.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
             const safeProduct = selProd.name; 
@@ -2504,9 +2573,8 @@
             const logId = generateUUID();
             dbState.logs.unshift({ id: logId, type: 'VENTA', method, amount: val, date: getDateStr(), time: getTimeStr(), description: `${qty}x ${selProd.name}`, origin: currentBarraId, foto, ticketId: tid });
             
-            saveLocalDB(); // FIX 4: Forzamos guardado local inmediatamente
+            saveLocalDB(); 
 
-            // FIX 5: Filtro de ruido agregando prefijo al QR
             const qrPayload = "VIPCLUB:" + tid;
 
             const qa = document.getElementById('qr-amount'); const qi = document.getElementById('qr-product-info'); const qc = document.getElementById('qr-container'); const mq = document.getElementById('modal-qr');
@@ -2514,7 +2582,17 @@
             if (qi) qi.innerText = `${qty}x ${selProd.name.toUpperCase()} · ${currentBarraId.toUpperCase()}`;
             
             if (mq) mq.style.display = 'flex';
+            
             if (qc) { 
+                qc.innerHTML = `<div style="padding:30px; text-align:center;">
+                    <div style="font-size:3rem; animation: ledPulse 1s infinite;">⏳</div>
+                    <div style="font-family:'Orbitron'; color:var(--neon-cyan); margin-top:15px; font-weight:bold; letter-spacing:2px; font-size: 0.8rem;">SINCRONIZANDO...</div>
+                </div>`; 
+            }
+
+            await syncToCloud(); 
+
+            if (qc) {
                 qc.innerHTML = ''; 
                 new QRCode(qc, { 
                     text: qrPayload, 
@@ -2525,9 +2603,6 @@
                     correctLevel: QRCode.CorrectLevel.M 
                 }); 
             }
-
-            // MÁGIA DE SINCRONIZACIÓN OBLIGATORIA
-            await syncToCloud(); 
         }
         
         /* ========== CIERRE TURNO ========== */
@@ -2576,7 +2651,6 @@
 
             let qrText = raw.trim();
 
-            // FIX 5: Rechazar QR si no es del sistema VIP CLUB
             if (!qrText.startsWith('VIPCLUB:')) {
                 box.innerHTML = `<div class="scanner-big-icon neon-red">❌</div><h2 class="font-display neon-red" style="font-size:1.8rem;margin:15px 0;">QR EXTERNO</h2><p style="color:var(--text-soft);font-size:0.9rem;margin-bottom:15px;">Este código no pertenece al sistema VIP CLUB.</p><button class="btn btn-purple" onclick="cerrarAlerta()">VOLVER A ESCANEAR</button>`; box.style.borderColor = 'rgba(255,45,85,0.4)';
                 return;
@@ -2585,23 +2659,20 @@
             let ticketId = qrText.substring(8);
             try { if (ticketId.startsWith('{')) ticketId = JSON.parse(ticketId).id; } catch(e) { }
 
-            // FIX 2 y 3: Buscar en la nube PRIMERO con reintentos automáticos
             let cloudData = null;
             if (navigator.onLine) {
-                cloudData = await fetchTicketFromCloud(ticketId, 2);
+                cloudData = await fetchTicketFromCloud(ticketId, 4);
             }
 
             let data = null;
             if (cloudData) {
                 data = { id: cloudData.id, qty: Number(cloudData.qty), product: cloudData.product, category: cloudData.category, amount: Number(cloudData.amount), origin: cloudData.origin, method: cloudData.method, status: cloudData.status, date: cloudData.date, time: cloudData.time };
                 
-                // FIX 4: Si se obtuvo de la nube, inyectar/actualizar en el celular local para caché
                 const localIdx = dbState.tickets.findIndex(x => x.id === data.id);
                 if (localIdx >= 0) dbState.tickets[localIdx] = data;
                 else dbState.tickets.push(data);
                 saveLocalDB();
             } else {
-                // Solo si no hay internet o falló Supabase, confiar en la base local como última opción
                 data = dbState.tickets.find(x => x.id === ticketId);
             }
 
@@ -2614,12 +2685,10 @@
             } else {
                 data.status = 'USADO';
                 
-                // Actualizar local
                 const localIdx = dbState.tickets.findIndex(x => x.id === data.id);
                 if (localIdx >= 0) dbState.tickets[localIdx].status = 'USADO';
                 saveLocalDB();
 
-                // Actualizar Nube
                 if (navigator.onLine) await _supabase.from('tickets').update({ status: 'USADO' }).eq('id', data.id);
                 await syncToCloud();
 
@@ -2640,7 +2709,6 @@
 
             let qrText = raw.trim();
 
-            // FIX 5: Rechazar QR si no es del sistema VIP CLUB
             if (!qrText.startsWith('VIPCLUB:')) {
                 box.innerHTML = `<div class="scanner-big-icon neon-red">❌</div><h2 class="font-display neon-red" style="font-size:1.8rem;margin:15px 0;">QR EXTERNO</h2><p style="color:var(--text-soft);font-size:0.9rem;margin-bottom:15px;">Este código no pertenece al sistema VIP CLUB.</p><button class="btn btn-purple" onclick="cerrarAlertaBarra()">VOLVER A ESCANEAR</button>`; box.style.borderColor = 'rgba(255,45,85,0.4)';
                 return;
@@ -2649,17 +2717,15 @@
             let ticketId = qrText.substring(8);
             try { if (ticketId.startsWith('{')) ticketId = JSON.parse(ticketId).id; } catch(e) { }
 
-            // FIX 2 y 3: Buscar en la nube PRIMERO con reintentos
             let cloudData = null;
             if (navigator.onLine) {
-                cloudData = await fetchTicketFromCloud(ticketId, 2);
+                cloudData = await fetchTicketFromCloud(ticketId, 4);
             }
 
             let data = null;
             if (cloudData) {
                 data = { id: cloudData.id, qty: Number(cloudData.qty), product: cloudData.product, category: cloudData.category, amount: Number(cloudData.amount), origin: cloudData.origin, method: cloudData.method, status: cloudData.status, date: cloudData.date, time: cloudData.time };
                 
-                // FIX 4: Guardar en local para caché
                 const localIdx = dbState.tickets.findIndex(x => x.id === data.id);
                 if (localIdx >= 0) dbState.tickets[localIdx] = data;
                 else dbState.tickets.push(data);
@@ -2680,12 +2746,10 @@
             else {
                 data.status = 'ENTREGADO';
                 
-                // Actualizar local
                 const localIdx = dbState.tickets.findIndex(x => x.id === data.id);
                 if (localIdx >= 0) dbState.tickets[localIdx].status = 'ENTREGADO';
                 saveLocalDB();
 
-                // Actualizar Nube
                 if (navigator.onLine) await _supabase.from('tickets').update({ status: 'ENTREGADO' }).eq('id', data.id);
                 await syncToCloud();
 
@@ -2807,7 +2871,6 @@
                 if (navigator.canShare && navigator.canShare({ files: [file] })) {
                     await navigator.share({
                         title: 'Pase VIP CLUB',
-                        // === TEXTO ESTRATÉGICO WHATSAPP ===
                         text: '✨ ¡Acá tenés tu Pase VIP para esta noche! 🥂 Mostrale este código al portero desde tu pantalla (acordate que es de un solo uso). ¡Que disfrutes la fiesta!',
                         files: [file]
                     });
