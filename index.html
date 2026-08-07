@@ -2271,21 +2271,13 @@
         }
 
         async function eliminarBarra(n) {
-            if (!confirm(`¿Eliminar "${n}"? Se borrarán sus productos.`)) return;
+            if (!confirm(`¿Eliminar la barra "${n}" y TODO su stock?`)) return;
             
             if (!navigator.onLine) {
-                return showPremiumAlert("SIN INTERNET", "Necesitás conexión para eliminar barras de forma permanente.");
+                return showPremiumAlert("SIN INTERNET", "Necesitás conexión para eliminar de forma permanente.");
             }
 
-            const { error } = await _supabase.from('barras').delete().eq('local_id', cUser).eq('nombre', n);
-            
-            if (error) {
-                console.error("Error al borrar barra en Supabase:", error);
-                return showPremiumAlert("ERROR EN LA NUBE", "No se pudo eliminar. Verificá los permisos de tu base de datos.");
-            }
-
-            await _supabase.from('inventario').delete().eq('local_id', cUser).eq('bar_id', n);
-
+            // 1. Limpiamos la pantalla a CERO de forma inmediata
             dbState.barras = dbState.barras.filter(b => b !== n);
             dbState.inventory = dbState.inventory.filter(i => !(i.category === 'bebida' && i.barId === n));
             
@@ -2293,7 +2285,11 @@
             if (activeHistorialSector === n) activeHistorialSector = 'Boletería';
             
             saveLocalDB();
-            renderAdmin();
+            renderAdmin(); // La interfaz se purga al instante
+
+            // 2. Aniquilamos los datos en la Bóveda de Supabase
+            await _supabase.from('inventario').delete().eq('local_id', cUser).eq('bar_id', n);
+            await _supabase.from('barras').delete().eq('local_id', cUser).eq('nombre', n);
         }
         
         function selectBarraCarga(b) { activeBarraCarga = b; renderPillsCarga(); renderListaBebidasCarga(); }
@@ -2368,23 +2364,23 @@
         }
 
         async function removeProduct(id) {
-            if (!confirm("¿Eliminar producto?")) return;
+            if (!confirm("¿Eliminar este artículo definitivamente?")) return;
 
             if (!navigator.onLine) {
-                return showPremiumAlert("SIN INTERNET", "Necesitás conexión para eliminar productos permanentemente.");
+                return showPremiumAlert("SIN INTERNET", "Necesitás conexión para eliminar productos.");
             }
 
-            const { error } = await _supabase.from('inventario').delete().eq('id', id);
-
-            if (error) {
-                console.error("Error al borrar producto en Supabase:", error);
-                return showPremiumAlert("ERROR EN LA NUBE", "No se pudo eliminar el producto.");
-            }
-
+            // 1. Borramos el artículo de la pantalla CERO DEMORA
             dbState.inventory = dbState.inventory.filter(i => i.id !== id);
-            
             saveLocalDB();
             renderAdmin();
+
+            // 2. Destruimos el artículo en Supabase para que no vuelva jamás
+            const { error } = await _supabase.from('inventario').delete().eq('id', id);
+            
+            if (error) {
+                console.error("Fallo al borrar en la nube:", error);
+            }
         }
 
         function verFoto(b64) {
