@@ -1852,7 +1852,7 @@
 
         let syncInterval = null; // Variable global para el motor de polling
 
-        // === NUEVO: LOGOUT SEGURO ===
+        // === LOGOUT SEGURO ===
         function logout() {
             if(syncInterval) clearInterval(syncInterval); // Apagamos el motor
             localStorage.removeItem('vip_cUser');
@@ -1872,17 +1872,28 @@
         let html5QrcodeScanner = null, html5QrBarra = null;
         let activeBarraCarga = "", activeHistorialSector = "Boletería"; 
 
-        /* ========== MOTOR DE SINCRONIZACIÓN EN SEGUNDO PLANO (POLLING) ========== */
+        /* ========== MOTOR DE SINCRONIZACIÓN EN SEGUNDO PLANO (POLLING CADA 5s) ========== */
         async function silentSyncDown() {
             if(!cUser || !navigator.onLine) return;
             try {
-                const [resInv, resTickets, resLogs] = await Promise.all([
+                const [resBarras, resInv, resTickets, resLogs] = await Promise.all([
+                    _supabase.from('barras').select('nombre').eq('local_id', cUser),
                     _supabase.from('inventario').select('*').eq('local_id', cUser),
                     _supabase.from('tickets').select('*').eq('local_id', cUser),
                     _supabase.from('logs').select('*').eq('local_id', cUser).order('created_at', { ascending: false }).limit(300)
                 ]);
 
                 let changed = false;
+
+                // Forzar actualización estricta de las barras (Evita el desfasaje de barras en distintos celulares)
+                if (resBarras && resBarras.data) {
+                    const dbNombres = resBarras.data.map(b => b.nombre);
+                    // Chequear si hay diferencias
+                    if (dbNombres.length !== dbState.barras.length || !dbNombres.every(v => dbState.barras.includes(v))) {
+                        dbState.barras = dbNombres.length ? dbNombres : ["Barra 1"];
+                        changed = true;
+                    }
+                }
 
                 if (resInv && resInv.data) {
                     resInv.data.forEach(dbItem => {
@@ -1931,9 +1942,14 @@
 
                 if(changed) {
                     saveLocalDB();
-                    // Si el dueño está mirando el panel, le actualizamos los números automáticamente
+                    // Actualizamos las vistas si están abiertas
                     if(document.getElementById('view-admin').classList.contains('active')) {
                         renderAdmin();
+                    }
+                    if(document.getElementById('modal-select-barra').style.display === 'flex') {
+                        // Refrescar el selector de barras si estaba abierto
+                        let h = ''; dbState.barras.forEach(b => { h += `<button class="btn btn-cyan" onclick="entrarABarra('${b}')">🍹 ${b.toUpperCase()}</button>`; });
+                        document.getElementById('list-barras-cajero').innerHTML = h;
                     }
                 }
             } catch(e) {}
@@ -1989,7 +2005,7 @@
             if (t) { t.classList.add('active'); window.scrollTo(0, 0); }
         }
 
-        /* === NUEVO: AUTO-LOGIN === */
+        /* === AUTO-LOGIN === */
         document.addEventListener('DOMContentLoaded', () => {
             const savedUser = localStorage.getItem('vip_cUser');
             const savedPin = localStorage.getItem('vip_cPin');
@@ -2082,7 +2098,7 @@
                 window.vencimiento = cd.expires_at;
                 cUser = data.local; cPin = pin; cAdminPin = data.admin_pin || "0000";
                 
-                // 2. MÁGIA DE FUSIÓN: LEEMOS DE SUPABASE Y LO UNIMOS A LO QUE YA TENEMOS EN EL CELULAR (MERGE)
+                // 2. MÁGIA DE FUSIÓN INICIAL
                 try {
                     const [resBarras, resInv, resTickets, resLogs] = await Promise.all([
                         _supabase.from('barras').select('nombre').eq('local_id', cUser),
@@ -2092,9 +2108,8 @@
                     ]);
                     
                     if (resBarras && resBarras.data) {
-                        resBarras.data.forEach(b => {
-                            if (!dbState.barras.includes(b.nombre)) dbState.barras.push(b.nombre);
-                        });
+                        // Reseteamos las barras basándonos puramente en la nube en el login
+                        dbState.barras = resBarras.data.map(b => b.nombre);
                     }
                     if (!dbState.barras.length) dbState.barras = ["Barra 1"];
 
@@ -2145,7 +2160,7 @@
 
                 // INICIAMOS EL MOTOR DE SINCRONIZACIÓN AUTOMÁTICA
                 if(syncInterval) clearInterval(syncInterval);
-                syncInterval = setInterval(silentSyncDown, 10000); // 10 Segundos
+                syncInterval = setInterval(silentSyncDown, 5000); // 5 SEGUNDOS (SÚPER RÁPIDO)
 
                 document.getElementById('login-pin').value = '';
                 if(btn) { btn.innerText = 'INICIAR SESIÓN'; btn.disabled = false; }
@@ -2241,8 +2256,17 @@
             const btn = document.getElementById('btn-crear-barra');
             if(btn) { btn.innerText = "⏳ CREANDO..."; btn.disabled = true; }
 
+            // Guardamos local
             dbState.barras.push(n); 
-            await syncToCloud(); 
+            saveLocalDB();
+            
+            // Subimos a la nube ESTRICTAMENTE la barra
+            if (navigator.onLine) {
+                try {
+                    await _supabase.from('barras').insert([{ local_id: cUser, nombre: n }]);
+                } catch(e){}
+            }
+
             renderAdmin();
             document.getElementById('add-nombre-barra').value = '';
 
@@ -2262,7 +2286,7 @@
                     await _supabase.from('inventario').delete().eq('local_id', cUser).eq('bar_id', n); 
                 } catch(e){}
             }
-            await syncToCloud(); 
+            saveLocalDB();
             renderAdmin();
         }
         
@@ -2315,10 +2339,19 @@
             const btn = document.getElementById(`btn-save-${cat}`);
             if(btn) { btn.innerText = "⏳ GUARDANDO..."; btn.disabled = true; }
 
+            const newItem = { id: 'ITM-' + Date.now(), name, price, stock, category: cat, barId };
             if (!dbState.inventory) dbState.inventory = [];
-            dbState.inventory.unshift({ id: 'ITM-' + Date.now(), name, price, stock, category: cat, barId });
-            
-            await syncToCloud(); 
+            dbState.inventory.unshift(newItem);
+            saveLocalDB();
+
+            if (navigator.onLine) {
+                try {
+                    await _supabase.from('inventario').insert([{
+                        id: newItem.id, local_id: cUser, name: newItem.name, price: newItem.price, stock: newItem.stock, category: newItem.category, bar_id: newItem.barId
+                    }]);
+                } catch(e){}
+            }
+
             renderAdmin();
             
             document.getElementById(`add-name-${cat}`).value = ''; 
@@ -2334,7 +2367,7 @@
             if(navigator.onLine) {
                 try { await _supabase.from('inventario').delete().eq('id', id); } catch(e){}
             }
-            await syncToCloud(); 
+            saveLocalDB();
             renderAdmin();
         }
         function verFoto(b64) {
@@ -2563,6 +2596,7 @@
             let qty = 1; if (expr.includes('*')) { const ps = expr.split('*'); const n = parseFloat(ps[ps.length - 1]); if (!isNaN(n) && n > 0) qty = n; }
             if (selProd.id !== 'GEN-ENT') { const idx = dbState.inventory.findIndex(i => i.id === selProd.id); if (idx >= 0) dbState.inventory[idx].stock = Math.max(0, (dbState.inventory[idx].stock||0) - qty); }
             
+            // ID UNIVERSAL
             const tid = generateUUID();
             const safeOrigin = currentBarraId.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
             const safeProduct = selProd.name; 
@@ -2583,15 +2617,26 @@
             
             if (mq) mq.style.display = 'flex';
             
+            // PANTALLA DE BLOQUEO VISUAL
             if (qc) { 
                 qc.innerHTML = `<div style="padding:30px; text-align:center;">
                     <div style="font-size:3rem; animation: ledPulse 1s infinite;">⏳</div>
-                    <div style="font-family:'Orbitron'; color:var(--neon-cyan); margin-top:15px; font-weight:bold; letter-spacing:2px; font-size: 0.8rem;">SINCRONIZANDO...</div>
+                    <div style="font-family:'Orbitron'; color:var(--neon-cyan); margin-top:15px; font-weight:bold; letter-spacing:2px; font-size: 0.8rem;">SUBIENDO A LA NUBE...</div>
                 </div>`; 
             }
 
-            await syncToCloud(); 
+            // INSERT DIRECTO - ASEGURA QUE EXISTA ANTES DEL QR
+            if (navigator.onLine) {
+                try {
+                    await _supabase.from('tickets').insert([{
+                        id: tid, local_id: cUser, qty: qty, product: safeProduct, category: selProd.category,
+                        amount: val, origin: safeOrigin, method: method, status: 'ACTIVO',
+                        date: getDateStr(), time: getTimeStr()
+                    }]);
+                } catch(e) {}
+            }
 
+            // DIBUJA EL QR RECIÉN CUANDO ESTÁ ASEGURADO EN DB
             if (qc) {
                 qc.innerHTML = ''; 
                 new QRCode(qc, { 
@@ -2650,14 +2695,14 @@
             document.getElementById('modal-alerta').style.display = 'flex';
 
             let qrText = raw.trim();
+            let ticketId = qrText;
 
-            if (!qrText.startsWith('VIPCLUB:')) {
-                box.innerHTML = `<div class="scanner-big-icon neon-red">❌</div><h2 class="font-display neon-red" style="font-size:1.8rem;margin:15px 0;">QR EXTERNO</h2><p style="color:var(--text-soft);font-size:0.9rem;margin-bottom:15px;">Este código no pertenece al sistema VIP CLUB.</p><button class="btn btn-purple" onclick="cerrarAlerta()">VOLVER A ESCANEAR</button>`; box.style.borderColor = 'rgba(255,45,85,0.4)';
-                return;
+            // EXTRACCIÓN UNIVERSAL
+            if (qrText.startsWith('VIPCLUB:')) {
+                ticketId = qrText.substring(8);
+            } else if (ticketId.startsWith('{')) {
+                try { ticketId = JSON.parse(ticketId).id; } catch(e) { }
             }
-
-            let ticketId = qrText.substring(8);
-            try { if (ticketId.startsWith('{')) ticketId = JSON.parse(ticketId).id; } catch(e) { }
 
             let cloudData = null;
             if (navigator.onLine) {
@@ -2690,8 +2735,7 @@
                 saveLocalDB();
 
                 if (navigator.onLine) await _supabase.from('tickets').update({ status: 'USADO' }).eq('id', data.id);
-                await syncToCloud();
-
+                
                 box.innerHTML = `<div class="scanner-big-icon neon-green">✅</div><h2 class="font-display" style="color:var(--neon-green);font-weight:900;font-size:2rem;margin:15px 0;">¡INGRESO VÁLIDO!</h2><p style="font-family:'Orbitron';color:white;font-size:1.2rem;font-weight:900;">${data.qty}x ${data.product.toUpperCase()}</p><button class="btn btn-cyan" style="margin-top:20px;" onclick="cerrarAlerta()">SIGUIENTE CLIENTE</button>`; box.style.borderColor = 'rgba(0,255,148,0.4)';
             }
         }
@@ -2708,14 +2752,13 @@
             document.getElementById('modal-alerta').style.display = 'flex';
 
             let qrText = raw.trim();
+            let ticketId = qrText;
 
-            if (!qrText.startsWith('VIPCLUB:')) {
-                box.innerHTML = `<div class="scanner-big-icon neon-red">❌</div><h2 class="font-display neon-red" style="font-size:1.8rem;margin:15px 0;">QR EXTERNO</h2><p style="color:var(--text-soft);font-size:0.9rem;margin-bottom:15px;">Este código no pertenece al sistema VIP CLUB.</p><button class="btn btn-purple" onclick="cerrarAlertaBarra()">VOLVER A ESCANEAR</button>`; box.style.borderColor = 'rgba(255,45,85,0.4)';
-                return;
+            if (qrText.startsWith('VIPCLUB:')) {
+                ticketId = qrText.substring(8);
+            } else if (ticketId.startsWith('{')) {
+                try { ticketId = JSON.parse(ticketId).id; } catch(e) { }
             }
-
-            let ticketId = qrText.substring(8);
-            try { if (ticketId.startsWith('{')) ticketId = JSON.parse(ticketId).id; } catch(e) { }
 
             let cloudData = null;
             if (navigator.onLine) {
@@ -2751,8 +2794,7 @@
                 saveLocalDB();
 
                 if (navigator.onLine) await _supabase.from('tickets').update({ status: 'ENTREGADO' }).eq('id', data.id);
-                await syncToCloud();
-
+                
                 try { const voz = new SpeechSynthesisUtterance(); voz.text = `ENTREGAR: ${data.qty} ${data.product.toUpperCase()}`; voz.lang = 'es-AR'; window.speechSynthesis.cancel(); window.speechSynthesis.speak(voz); } catch(e){}
                 box.innerHTML = `
                     <div class="scanner-big-icon neon-green">✅</div>
@@ -2805,7 +2847,7 @@
                     }
                 }
 
-                // Payload conversion for SQL types (Numbers strict)
+                // Payload conversion for SQL types
                 const invPayload = dbState.inventory.map(i => ({ id: i.id, local_id: cUser, name: i.name, price: Number(i.price), stock: Number(i.stock), category: i.category, bar_id: i.barId || null }));
                 const tktPayload = dbState.tickets.map(t => ({ id: t.id, local_id: cUser, qty: Number(t.qty), product: t.product, category: t.category, amount: Number(t.amount), origin: t.origin, method: t.method, status: t.status, date: t.date, time: t.time }));
                 const logPayload = dbState.logs.map(l => ({ id: l.id, local_id: cUser, type: l.type, method: l.method, amount: Number(l.amount), description: l.description, origin: l.origin, foto_base64: l.foto || null, ticket_id: l.ticketId || null, date: l.date, time: l.time }));
@@ -2823,13 +2865,6 @@
                 if (logPayload.length) {
                     const { error } = await _supabase.from('logs').upsert(logPayload);
                     if (error) console.error("Error logs Supabase:", error);
-                }
-
-                const { data: extBarras } = await _supabase.from('barras').select('nombre').eq('local_id', cUser);
-                const nombresActuales = extBarras ? extBarras.map(b=>b.nombre) : [];
-                const nuevasBarras = dbState.barras.filter(b => !nombresActuales.includes(b));
-                if(nuevasBarras.length > 0) {
-                    await _supabase.from('barras').insert(nuevasBarras.map(b => ({ local_id: cUser, nombre: b })));
                 }
 
                 const { data } = await _supabase.from('usuarios').select('app_data').eq('local', cUser).single();
