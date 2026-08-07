@@ -1873,10 +1873,11 @@
         let selProd = null;
         let html5QrcodeScanner = null, html5QrBarra = null;
         let activeBarraCarga = "", activeHistorialSector = "Boletería"; 
+        let isSyncing = false; // <--- NUEVO: CERROJO MUTEX
 
         /* ========== MOTOR DE SINCRONIZACIÓN SILENCIOSA ========== */
         async function silentSyncDown() {
-            if(!cUser || !navigator.onLine) return;
+            if(!cUser || !navigator.onLine || isSyncing) return; // <--- Bloqueado si se está eliminando algo
             try {
                 const [resBarras, resInv, resTickets, resLogs] = await Promise.all([
                     _supabase.from('barras').select('nombre').eq('local_id', cUser),
@@ -1889,8 +1890,9 @@
 
                 if (resBarras && resBarras.data) {
                     const dbNombres = resBarras.data.map(b => b.nombre);
-                    if (dbNombres.length !== dbState.barras.length || !dbNombres.every(v => dbState.barras.includes(v))) {
-                        dbState.barras = dbNombres.length ? dbNombres : ["Barra 1"];
+                    // Eliminado el "Barra 1" forzado, sincronizamos exactamente lo que hay en la nube
+                    if (dbNombres.length !== dbState.barras.length || !dbNombres.every(v => dbState.barras.includes(v)) || !dbState.barras.every(v => dbNombres.includes(v))) {
+                        dbState.barras = dbNombres; 
                         changed = true;
                     }
                 }
@@ -2106,7 +2108,7 @@
                     if (resBarras && resBarras.data) {
                         dbState.barras = resBarras.data.map(b => b.nombre);
                     }
-                    if (!dbState.barras.length) dbState.barras = ["Barra 1"];
+                    if (!dbState.barras.length) dbState.barras = []; // Eliminado forzar "Barra 1"
 
                     if (resInv && resInv.data) {
                         resInv.data.forEach(dbItem => {
@@ -2277,7 +2279,19 @@
                 return showPremiumAlert("SIN INTERNET", "Necesitás conexión para eliminar de forma permanente.");
             }
 
-            // 1. Limpiamos la pantalla a CERO de forma inmediata
+            isSyncing = true; // Cerrojo Mutex Activado
+
+            // 1. Destruimos primero en Supabase
+            const { error: errInv } = await _supabase.from('inventario').delete().eq('local_id', cUser).eq('bar_id', n);
+            const { error: errBarra } = await _supabase.from('barras').delete().eq('local_id', cUser).eq('nombre', n);
+            
+            if (errBarra) {
+                console.error("Error al borrar barra en Supabase:", errBarra);
+                isSyncing = false;
+                return showPremiumAlert("ERROR EN LA NUBE", "No se pudo eliminar. Verificá los permisos de tu base de datos.");
+            }
+
+            // 2. Si se eliminó en la nube, lo volamos de la memoria de inmediato
             dbState.barras = dbState.barras.filter(b => b !== n);
             dbState.inventory = dbState.inventory.filter(i => !(i.category === 'bebida' && i.barId === n));
             
@@ -2285,11 +2299,9 @@
             if (activeHistorialSector === n) activeHistorialSector = 'Boletería';
             
             saveLocalDB();
-            renderAdmin(); // La interfaz se purga al instante
+            renderAdmin(); 
 
-            // 2. Aniquilamos los datos en la Bóveda de Supabase
-            await _supabase.from('inventario').delete().eq('local_id', cUser).eq('bar_id', n);
-            await _supabase.from('barras').delete().eq('local_id', cUser).eq('nombre', n);
+            isSyncing = false; // Cerrojo Mutex Desactivado
         }
         
         function selectBarraCarga(b) { activeBarraCarga = b; renderPillsCarga(); renderListaBebidasCarga(); }
@@ -2370,17 +2382,24 @@
                 return showPremiumAlert("SIN INTERNET", "Necesitás conexión para eliminar productos.");
             }
 
-            // 1. Borramos el artículo de la pantalla CERO DEMORA
+            isSyncing = true; // Cerrojo Mutex Activado
+
+            // 1. Destruimos primero en Supabase
+            const { error } = await _supabase.from('inventario').delete().eq('id', id);
+
+            if (error) {
+                console.error("Fallo al borrar en la nube:", error);
+                isSyncing = false;
+                return showPremiumAlert("ERROR EN LA NUBE", "No se pudo eliminar el producto.");
+            }
+
+            // 2. Si se eliminó en la nube, lo volamos de la memoria de inmediato
             dbState.inventory = dbState.inventory.filter(i => i.id !== id);
+            
             saveLocalDB();
             renderAdmin();
 
-            // 2. Destruimos el artículo en Supabase para que no vuelva jamás
-            const { error } = await _supabase.from('inventario').delete().eq('id', id);
-            
-            if (error) {
-                console.error("Fallo al borrar en la nube:", error);
-            }
+            isSyncing = false; // Cerrojo Mutex Desactivado
         }
 
         function verFoto(b64) {
