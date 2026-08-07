@@ -1850,11 +1850,13 @@
             localStorage.setItem('vip_dbState', JSON.stringify(dbState));
         }
 
-        let syncInterval = null; // Variable global para el motor de polling
+        let syncInterval = null;
+        let realtimeChannel = null; // Variable para el websocket de milisegundos
 
         // === LOGOUT SEGURO ===
         function logout() {
-            if(syncInterval) clearInterval(syncInterval); // Apagamos el motor
+            if(syncInterval) clearInterval(syncInterval); 
+            if(realtimeChannel) { _supabase.removeChannel(realtimeChannel); }
             localStorage.removeItem('vip_cUser');
             localStorage.removeItem('vip_cPin');
             location.reload();
@@ -1872,7 +1874,7 @@
         let html5QrcodeScanner = null, html5QrBarra = null;
         let activeBarraCarga = "", activeHistorialSector = "Boletería"; 
 
-        /* ========== MOTOR DE SINCRONIZACIÓN EN SEGUNDO PLANO (POLLING CADA 5s) ========== */
+        /* ========== MOTOR DE SINCRONIZACIÓN SILENCIOSA ========== */
         async function silentSyncDown() {
             if(!cUser || !navigator.onLine) return;
             try {
@@ -1885,10 +1887,8 @@
 
                 let changed = false;
 
-                // Forzar actualización estricta de las barras (Evita el desfasaje de barras en distintos celulares)
                 if (resBarras && resBarras.data) {
                     const dbNombres = resBarras.data.map(b => b.nombre);
-                    // Chequear si hay diferencias
                     if (dbNombres.length !== dbState.barras.length || !dbNombres.every(v => dbState.barras.includes(v))) {
                         dbState.barras = dbNombres.length ? dbNombres : ["Barra 1"];
                         changed = true;
@@ -1942,12 +1942,10 @@
 
                 if(changed) {
                     saveLocalDB();
-                    // Actualizamos las vistas si están abiertas
                     if(document.getElementById('view-admin').classList.contains('active')) {
                         renderAdmin();
                     }
                     if(document.getElementById('modal-select-barra').style.display === 'flex') {
-                        // Refrescar el selector de barras si estaba abierto
                         let h = ''; dbState.barras.forEach(b => { h += `<button class="btn btn-cyan" onclick="entrarABarra('${b}')">🍹 ${b.toUpperCase()}</button>`; });
                         document.getElementById('list-barras-cajero').innerHTML = h;
                     }
@@ -2058,7 +2056,6 @@
             const btn = document.getElementById('btn-login');
             if(btn && !isAuto) { btn.innerText = 'CONECTANDO...'; btn.disabled = true; }
 
-            // 1. CARGAMOS LA MEMORIA LOCAL PRIMERO PARA BLINDAR LOS DATOS
             loadLocalDB();
 
             if (!navigator.onLine) {
@@ -2098,7 +2095,6 @@
                 window.vencimiento = cd.expires_at;
                 cUser = data.local; cPin = pin; cAdminPin = data.admin_pin || "0000";
                 
-                // 2. MÁGIA DE FUSIÓN INICIAL
                 try {
                     const [resBarras, resInv, resTickets, resLogs] = await Promise.all([
                         _supabase.from('barras').select('nombre').eq('local_id', cUser),
@@ -2108,7 +2104,6 @@
                     ]);
                     
                     if (resBarras && resBarras.data) {
-                        // Reseteamos las barras basándonos puramente en la nube en el login
                         dbState.barras = resBarras.data.map(b => b.nombre);
                     }
                     if (!dbState.barras.length) dbState.barras = ["Barra 1"];
@@ -2146,21 +2141,25 @@
                             return dtB.localeCompare(dtA);
                         });
                     }
-                } catch(e) {
-                    console.log("Aviso: Error conectando a las tablas. Manteniendo datos locales intactos.", e);
-                }
+                } catch(e) {}
 
                 localStorage.setItem('vip_cUser', cUser);
                 localStorage.setItem('vip_cPin', cPin);
                 localStorage.setItem('vip_cAdminPin', cAdminPin);
                 
-                // 3. Forzamos la subida de todo a Supabase por si faltaban datos en la nube
                 saveLocalDB();
                 await syncToCloud();
 
-                // INICIAMOS EL MOTOR DE SINCRONIZACIÓN AUTOMÁTICA
+                // 🌟 INICIAMOS EL MOTOR REALTIME EN MILISEGUNDOS 🌟
+                if(realtimeChannel) _supabase.removeChannel(realtimeChannel);
+                realtimeChannel = _supabase.channel('vip_realtime_' + cUser.replace(/\s+/g, ''))
+                    .on('postgres_changes', { event: '*', schema: 'public', table: 'tickets', filter: `local_id=eq.${cUser}` }, payload => silentSyncDown())
+                    .on('postgres_changes', { event: '*', schema: 'public', table: 'logs', filter: `local_id=eq.${cUser}` }, payload => silentSyncDown())
+                    .on('postgres_changes', { event: '*', schema: 'public', table: 'barras', filter: `local_id=eq.${cUser}` }, payload => silentSyncDown())
+                    .subscribe();
+
                 if(syncInterval) clearInterval(syncInterval);
-                syncInterval = setInterval(silentSyncDown, 5000); // 5 SEGUNDOS (SÚPER RÁPIDO)
+                syncInterval = setInterval(silentSyncDown, 5000); // Respaldo cada 5 segs por si el WebSocket se duerme
 
                 document.getElementById('login-pin').value = '';
                 if(btn) { btn.innerText = 'INICIAR SESIÓN'; btn.disabled = false; }
@@ -2256,11 +2255,9 @@
             const btn = document.getElementById('btn-crear-barra');
             if(btn) { btn.innerText = "⏳ CREANDO..."; btn.disabled = true; }
 
-            // Guardamos local
             dbState.barras.push(n); 
             saveLocalDB();
             
-            // Subimos a la nube ESTRICTAMENTE la barra
             if (navigator.onLine) {
                 try {
                     await _supabase.from('barras').insert([{ local_id: cUser, nombre: n }]);
@@ -2421,7 +2418,6 @@
             const titleEl = document.getElementById('admin-header-title');
             titleEl.innerText = cUser ? `👑 ${cUser.toUpperCase()}` : '👑 PANEL DUEÑO';
 
-            // --- CONTADOR DE DÍAS RESTANTES ---
             if (window.vencimiento) {
                 const diasRestantes = Math.ceil((window.vencimiento - Date.now()) / (1000 * 60 * 60 * 24));
                 
@@ -2596,20 +2592,20 @@
             let qty = 1; if (expr.includes('*')) { const ps = expr.split('*'); const n = parseFloat(ps[ps.length - 1]); if (!isNaN(n) && n > 0) qty = n; }
             if (selProd.id !== 'GEN-ENT') { const idx = dbState.inventory.findIndex(i => i.id === selProd.id); if (idx >= 0) dbState.inventory[idx].stock = Math.max(0, (dbState.inventory[idx].stock||0) - qty); }
             
-            // ID UNIVERSAL
             const tid = generateUUID();
             const safeOrigin = currentBarraId.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
             const safeProduct = selProd.name; 
             
-            const ticketData = { id: tid, qty: qty, product: safeProduct, category: selProd.category, amount: val, origin: safeOrigin, method: method, time: getTimeStr(), date: getDateStr() };
-            dbState.tickets.push({ ...ticketData, status: 'ACTIVO' });
+            // 🌟 INYECCIÓN DE QUÉ BOLICHE ES EN EL QR 🌟
+            const qrPayload = "VIPCLUB:" + cUser + ":" + tid;
+
+            const ticketData = { id: tid, qty: qty, product: safeProduct, category: selProd.category, amount: val, origin: safeOrigin, method: method, time: getTimeStr(), date: getDateStr(), status: 'ACTIVO' };
+            dbState.tickets.push(ticketData);
             
             const logId = generateUUID();
             dbState.logs.unshift({ id: logId, type: 'VENTA', method, amount: val, date: getDateStr(), time: getTimeStr(), description: `${qty}x ${selProd.name}`, origin: currentBarraId, foto, ticketId: tid });
             
             saveLocalDB(); 
-
-            const qrPayload = "VIPCLUB:" + tid;
 
             const qa = document.getElementById('qr-amount'); const qi = document.getElementById('qr-product-info'); const qc = document.getElementById('qr-container'); const mq = document.getElementById('modal-qr');
             if (qa) qa.innerText = `$${fmt(val)} · ${method}`;
@@ -2617,11 +2613,11 @@
             
             if (mq) mq.style.display = 'flex';
             
-            // PANTALLA DE BLOQUEO VISUAL
+            // 🌟 BLOQUEO VISUAL: ESPERANDO A SUPABASE 🌟
             if (qc) { 
                 qc.innerHTML = `<div style="padding:30px; text-align:center;">
                     <div style="font-size:3rem; animation: ledPulse 1s infinite;">⏳</div>
-                    <div style="font-family:'Orbitron'; color:var(--neon-cyan); margin-top:15px; font-weight:bold; letter-spacing:2px; font-size: 0.8rem;">SUBIENDO A LA NUBE...</div>
+                    <div style="font-family:'Orbitron'; color:var(--neon-cyan); margin-top:15px; font-weight:bold; letter-spacing:2px; font-size: 0.8rem;">AUTORIZANDO EN NUBE...</div>
                 </div>`; 
             }
 
@@ -2634,9 +2630,10 @@
                         date: getDateStr(), time: getTimeStr()
                     }]);
                 } catch(e) {}
+                await syncToCloud(); // Respaldo extra
             }
 
-            // DIBUJA EL QR RECIÉN CUANDO ESTÁ ASEGURADO EN DB
+            // RECIÉN ACÁ DIBUJAMOS EL QR, ASÍ EL ESCÁNER NUNCA FALLA
             if (qc) {
                 qc.innerHTML = ''; 
                 new QRCode(qc, { 
@@ -2681,7 +2678,7 @@
         }
         
         /* ============================================================
-           🆕 ESCÁNER DE PUERTA Y BARRA (CON REVISIÓN EN TIEMPO REAL)
+           🆕 ESCÁNER DE PUERTA Y BARRA UNIVERSAL ANTI-FALLOS
            ============================================================ */
         function iniciarEscaner() { if (html5QrcodeScanner) return; html5QrcodeScanner = new Html5Qrcode("reader"); html5QrcodeScanner.start({ facingMode: "environment" }, { fps: 12, qrbox: { width: 260, height: 260 } }, decodedText => validarTicketPuerta(decodedText), () => {}).catch(err => { showPremiumAlert("ERROR CÁMARA", "Aceptá los permisos."); html5QrcodeScanner = null; }); }
         function detenerEscaner() { if (html5QrcodeScanner) { html5QrcodeScanner.stop().then(() => { html5QrcodeScanner = null; go('view-roles'); }); } else go('view-roles'); }
@@ -2696,12 +2693,25 @@
 
             let qrText = raw.trim();
             let ticketId = qrText;
+            let qrClub = cUser;
 
-            // EXTRACCIÓN UNIVERSAL
+            // EXTRACCIÓN UNIVERSAL (Soporta tickets nuevos, viejos y de otros boliches)
             if (qrText.startsWith('VIPCLUB:')) {
-                ticketId = qrText.substring(8);
+                const parts = qrText.split(':');
+                if(parts.length === 3) {
+                    qrClub = parts[1];
+                    ticketId = parts[2];
+                } else {
+                    ticketId = parts[1]; // Soporte retroactivo a la versión anterior
+                }
             } else if (ticketId.startsWith('{')) {
                 try { ticketId = JSON.parse(ticketId).id; } catch(e) { }
+            }
+
+            // 🌟 VALIDACIÓN DE BOLICHE EXACTO 🌟
+            if (qrClub !== cUser) {
+                box.innerHTML = `<div class="scanner-big-icon neon-red">❌</div><h2 class="font-display neon-red" style="font-size:1.6rem;margin:15px 0;">BOLICHE INCORRECTO</h2><p style="color:var(--text-soft);font-size:0.9rem;margin-bottom:15px;">Este código es de la sucursal <b>${qrClub}</b>. No sirve aquí.</p><button class="btn btn-purple" onclick="cerrarAlerta()">VOLVER A ESCANEAR</button>`; box.style.borderColor = 'rgba(255,45,85,0.4)';
+                return;
             }
 
             let cloudData = null;
@@ -2753,11 +2763,23 @@
 
             let qrText = raw.trim();
             let ticketId = qrText;
+            let qrClub = cUser;
 
             if (qrText.startsWith('VIPCLUB:')) {
-                ticketId = qrText.substring(8);
+                const parts = qrText.split(':');
+                if(parts.length === 3) {
+                    qrClub = parts[1];
+                    ticketId = parts[2];
+                } else {
+                    ticketId = parts[1];
+                }
             } else if (ticketId.startsWith('{')) {
                 try { ticketId = JSON.parse(ticketId).id; } catch(e) { }
+            }
+
+            if (qrClub !== cUser) {
+                box.innerHTML = `<div class="scanner-big-icon neon-red">❌</div><h2 class="font-display neon-red" style="font-size:1.6rem;margin:15px 0;">BOLICHE INCORRECTO</h2><p style="color:var(--text-soft);font-size:0.9rem;margin-bottom:15px;">Este código es de la sucursal <b>${qrClub}</b>. No sirve aquí.</p><button class="btn btn-purple" onclick="cerrarAlertaBarra()">VOLVER A ESCANEAR</button>`; box.style.borderColor = 'rgba(255,45,85,0.4)';
+                return;
             }
 
             let cloudData = null;
