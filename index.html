@@ -1869,6 +1869,22 @@
         let html5QrcodeScanner = null, html5QrBarra = null;
         let activeBarraCarga = "", activeHistorialSector = "Boletería"; 
 
+        /* ========== HELPER PARA TRAER TICKET DE LA NUBE CON REINTENTOS ========== */
+        async function fetchTicketFromCloud(ticketId, retries = 2) {
+            for (let i = 0; i <= retries; i++) {
+                try {
+                    const { data, error } = await _supabase.from('tickets').select('*').eq('id', ticketId).eq('local_id', cUser).single();
+                    if (data) return data;
+                    if (error && error.code !== 'PGRST116') throw error; // PGRST116 es not found, en ese caso devolvemos null sin reintentar
+                    return null; 
+                } catch (e) {
+                    if (i === retries) return null; 
+                    await new Promise(r => setTimeout(r, 800)); // Esperar 800ms antes de intentar de nuevo
+                }
+            }
+            return null;
+        }
+
         /* ========== UTILIDADES ========== */
         function getDateStr() { return new Date().toLocaleDateString('es-AR', { timeZone: 'America/Argentina/Buenos_Aires' }); }
         function getTimeStr() { return new Date().toLocaleTimeString('es-AR', { timeZone: 'America/Argentina/Buenos_Aires', hour: '2-digit', minute:'2-digit' }); }
@@ -2477,7 +2493,8 @@
             let qty = 1; if (expr.includes('*')) { const ps = expr.split('*'); const n = parseFloat(ps[ps.length - 1]); if (!isNaN(n) && n > 0) qty = n; }
             if (selProd.id !== 'GEN-ENT') { const idx = dbState.inventory.findIndex(i => i.id === selProd.id); if (idx >= 0) dbState.inventory[idx].stock = Math.max(0, (dbState.inventory[idx].stock||0) - qty); }
             
-            const tid = 'VIP-' + Date.now().toString().slice(-7);
+            // FIX 1: generateUUID() para que el ID sea matemáticamente único y nunca colisione.
+            const tid = generateUUID();
             const safeOrigin = currentBarraId.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
             const safeProduct = selProd.name; 
             
@@ -2487,7 +2504,11 @@
             const logId = generateUUID();
             dbState.logs.unshift({ id: logId, type: 'VENTA', method, amount: val, date: getDateStr(), time: getTimeStr(), description: `${qty}x ${selProd.name}`, origin: currentBarraId, foto, ticketId: tid });
             
-            const qrPayload = tid;
+            saveLocalDB(); // FIX 4: Forzamos guardado local inmediatamente
+
+            // FIX 5: Filtro de ruido agregando prefijo al QR
+            const qrPayload = "VIPCLUB:" + tid;
+
             const qa = document.getElementById('qr-amount'); const qi = document.getElementById('qr-product-info'); const qc = document.getElementById('qr-container'); const mq = document.getElementById('modal-qr');
             if (qa) qa.innerText = `$${fmt(val)} · ${method}`;
             if (qi) qi.innerText = `${qty}x ${selProd.name.toUpperCase()} · ${currentBarraId.toUpperCase()}`;
@@ -2553,23 +2574,35 @@
             box.style.borderColor = 'rgba(0,240,255,0.4)';
             document.getElementById('modal-alerta').style.display = 'flex';
 
-            let ticketId = raw.trim();
+            let qrText = raw.trim();
+
+            // FIX 5: Rechazar QR si no es del sistema VIP CLUB
+            if (!qrText.startsWith('VIPCLUB:')) {
+                box.innerHTML = `<div class="scanner-big-icon neon-red">❌</div><h2 class="font-display neon-red" style="font-size:1.8rem;margin:15px 0;">QR EXTERNO</h2><p style="color:var(--text-soft);font-size:0.9rem;margin-bottom:15px;">Este código no pertenece al sistema VIP CLUB.</p><button class="btn btn-purple" onclick="cerrarAlerta()">VOLVER A ESCANEAR</button>`; box.style.borderColor = 'rgba(255,45,85,0.4)';
+                return;
+            }
+
+            let ticketId = qrText.substring(8);
             try { if (ticketId.startsWith('{')) ticketId = JSON.parse(ticketId).id; } catch(e) { }
 
-            let data = dbState.tickets.find(x => x.id === ticketId);
-
+            // FIX 2 y 3: Buscar en la nube PRIMERO con reintentos automáticos
+            let cloudData = null;
             if (navigator.onLine) {
-                try {
-                    const { data: dbTkt } = await _supabase.from('tickets').select('*').eq('id', ticketId).eq('local_id', cUser).single();
-                    if (dbTkt) {
-                        if (!data) {
-                            data = { id: dbTkt.id, qty: Number(dbTkt.qty), product: dbTkt.product, category: dbTkt.category, amount: Number(dbTkt.amount), origin: dbTkt.origin, method: dbTkt.method, status: dbTkt.status, date: dbTkt.date, time: dbTkt.time };
-                            dbState.tickets.push(data);
-                        } else {
-                            data.status = dbTkt.status;
-                        }
-                    }
-                } catch(e) { }
+                cloudData = await fetchTicketFromCloud(ticketId, 2);
+            }
+
+            let data = null;
+            if (cloudData) {
+                data = { id: cloudData.id, qty: Number(cloudData.qty), product: cloudData.product, category: cloudData.category, amount: Number(cloudData.amount), origin: cloudData.origin, method: cloudData.method, status: cloudData.status, date: cloudData.date, time: cloudData.time };
+                
+                // FIX 4: Si se obtuvo de la nube, inyectar/actualizar en el celular local para caché
+                const localIdx = dbState.tickets.findIndex(x => x.id === data.id);
+                if (localIdx >= 0) dbState.tickets[localIdx] = data;
+                else dbState.tickets.push(data);
+                saveLocalDB();
+            } else {
+                // Solo si no hay internet o falló Supabase, confiar en la base local como última opción
+                data = dbState.tickets.find(x => x.id === ticketId);
             }
 
             if (!data) {
@@ -2580,6 +2613,13 @@
                 box.innerHTML = `<div class="scanner-big-icon neon-cyan">🍸</div><h2 class="font-display neon-cyan" style="font-size:1.5rem;margin:15px 0;">NO ES ENTRADA</h2><p style="color:var(--text-soft);font-size:0.95rem;">El cliente debe retirar esto en <b class="neon-cyan">${data.origin}</b>:</p><p style="color:white;font-weight:bold;margin-bottom:15px;">${data.qty}x ${data.product}</p><button class="btn btn-cyan" onclick="cerrarAlerta()">VOLVER A ESCANEAR</button>`; box.style.borderColor = 'rgba(0,240,255,0.4)';
             } else {
                 data.status = 'USADO';
+                
+                // Actualizar local
+                const localIdx = dbState.tickets.findIndex(x => x.id === data.id);
+                if (localIdx >= 0) dbState.tickets[localIdx].status = 'USADO';
+                saveLocalDB();
+
+                // Actualizar Nube
                 if (navigator.onLine) await _supabase.from('tickets').update({ status: 'USADO' }).eq('id', data.id);
                 await syncToCloud();
 
@@ -2598,23 +2638,34 @@
             box.style.borderColor = 'rgba(0,240,255,0.4)';
             document.getElementById('modal-alerta').style.display = 'flex';
 
-            let ticketId = raw.trim();
+            let qrText = raw.trim();
+
+            // FIX 5: Rechazar QR si no es del sistema VIP CLUB
+            if (!qrText.startsWith('VIPCLUB:')) {
+                box.innerHTML = `<div class="scanner-big-icon neon-red">❌</div><h2 class="font-display neon-red" style="font-size:1.8rem;margin:15px 0;">QR EXTERNO</h2><p style="color:var(--text-soft);font-size:0.9rem;margin-bottom:15px;">Este código no pertenece al sistema VIP CLUB.</p><button class="btn btn-purple" onclick="cerrarAlertaBarra()">VOLVER A ESCANEAR</button>`; box.style.borderColor = 'rgba(255,45,85,0.4)';
+                return;
+            }
+
+            let ticketId = qrText.substring(8);
             try { if (ticketId.startsWith('{')) ticketId = JSON.parse(ticketId).id; } catch(e) { }
 
-            let data = dbState.tickets.find(x => x.id === ticketId);
-
+            // FIX 2 y 3: Buscar en la nube PRIMERO con reintentos
+            let cloudData = null;
             if (navigator.onLine) {
-                try {
-                    const { data: dbTkt } = await _supabase.from('tickets').select('*').eq('id', ticketId).eq('local_id', cUser).single();
-                    if (dbTkt) {
-                        if (!data) {
-                            data = { id: dbTkt.id, qty: Number(dbTkt.qty), product: dbTkt.product, category: dbTkt.category, amount: Number(dbTkt.amount), origin: dbTkt.origin, method: dbTkt.method, status: dbTkt.status, date: dbTkt.date, time: dbTkt.time };
-                            dbState.tickets.push(data);
-                        } else {
-                            data.status = dbTkt.status;
-                        }
-                    }
-                } catch(e) {}
+                cloudData = await fetchTicketFromCloud(ticketId, 2);
+            }
+
+            let data = null;
+            if (cloudData) {
+                data = { id: cloudData.id, qty: Number(cloudData.qty), product: cloudData.product, category: cloudData.category, amount: Number(cloudData.amount), origin: cloudData.origin, method: cloudData.method, status: cloudData.status, date: cloudData.date, time: cloudData.time };
+                
+                // FIX 4: Guardar en local para caché
+                const localIdx = dbState.tickets.findIndex(x => x.id === data.id);
+                if (localIdx >= 0) dbState.tickets[localIdx] = data;
+                else dbState.tickets.push(data);
+                saveLocalDB();
+            } else {
+                data = dbState.tickets.find(x => x.id === ticketId);
             }
 
             if (!data) {
@@ -2628,6 +2679,13 @@
             }
             else {
                 data.status = 'ENTREGADO';
+                
+                // Actualizar local
+                const localIdx = dbState.tickets.findIndex(x => x.id === data.id);
+                if (localIdx >= 0) dbState.tickets[localIdx].status = 'ENTREGADO';
+                saveLocalDB();
+
+                // Actualizar Nube
                 if (navigator.onLine) await _supabase.from('tickets').update({ status: 'ENTREGADO' }).eq('id', data.id);
                 await syncToCloud();
 
