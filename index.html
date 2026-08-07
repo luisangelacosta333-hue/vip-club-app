@@ -1995,7 +1995,7 @@
                 window.vencimiento = cd.expires_at;
                 cUser = data.local; cPin = pin; cAdminPin = data.admin_pin || "0000";
                 
-                // 2. MÁGIA ESTRICTA: SUPABASE ES LA FUENTE DE LA VERDAD
+                // 2. MÁGIA DE FUSIÓN: LEEMOS DE SUPABASE Y LO UNIMOS A LO QUE YA TENEMOS EN EL CELULAR (MERGE)
                 try {
                     const [resBarras, resInv, resTickets, resLogs] = await Promise.all([
                         _supabase.from('barras').select('nombre').eq('local_id', cUser),
@@ -2004,26 +2004,51 @@
                         _supabase.from('logs').select('*').eq('local_id', cUser).order('created_at', { ascending: false }).limit(300)
                     ]);
                     
-                    if (resBarras && resBarras.data) dbState.barras = resBarras.data.map(b => b.nombre);
-                    if (!dbState.barras || dbState.barras.length === 0) dbState.barras = ["Barra 1"];
+                    // BARRAS
+                    if (resBarras && resBarras.data) {
+                        resBarras.data.forEach(b => {
+                            if (!dbState.barras.includes(b.nombre)) dbState.barras.push(b.nombre);
+                        });
+                    }
+                    if (!dbState.barras.length) dbState.barras = ["Barra 1"];
 
+                    // INVENTARIO
                     if (resInv && resInv.data) {
-                        dbState.inventory = resInv.data.map(i => ({ id: i.id, name: i.name, price: Number(i.price), stock: Number(i.stock), category: i.category, barId: i.bar_id }));
-                    } else { dbState.inventory = []; }
+                        resInv.data.forEach(dbItem => {
+                            const exists = dbState.inventory.find(i => i.id === dbItem.id);
+                            if (!exists) {
+                                dbState.inventory.push({ id: dbItem.id, name: dbItem.name, price: Number(dbItem.price), stock: Number(dbItem.stock), category: dbItem.category, barId: dbItem.bar_id });
+                            }
+                        });
+                    }
 
+                    // TICKETS
                     if (resTickets && resTickets.data) {
-                        dbState.tickets = resTickets.data.map(t => ({ id: t.id, qty: Number(t.qty), product: t.product, category: t.category, amount: Number(t.amount), origin: t.origin, method: t.method, status: t.status, date: t.date, time: t.time }));
-                    } else { dbState.tickets = []; }
+                        resTickets.data.forEach(dbTkt => {
+                            const idx = dbState.tickets.findIndex(t => t.id === dbTkt.id);
+                            if (idx === -1) {
+                                dbState.tickets.push({ id: dbTkt.id, qty: Number(dbTkt.qty), product: dbTkt.product, category: dbTkt.category, amount: Number(dbTkt.amount), origin: dbTkt.origin, method: dbTkt.method, status: dbTkt.status, date: dbTkt.date, time: dbTkt.time });
+                            } else {
+                                dbState.tickets[idx].status = dbTkt.status; // Actualiza el estado real si ya fue escaneado
+                            }
+                        });
+                    }
 
+                    // LOGS
                     if (resLogs && resLogs.data) {
-                        dbState.logs = resLogs.data.map(l => ({ id: l.id, type: l.type, method: l.method, amount: Number(l.amount), description: l.description, origin: l.origin, foto: l.foto_base64, ticketId: l.ticket_id || l.ticketId, date: l.date, time: l.time }));
+                        resLogs.data.forEach(dbLog => {
+                            const exists = dbState.logs.find(l => l.id === dbLog.id);
+                            if (!exists) {
+                                dbState.logs.push({ id: dbLog.id, type: dbLog.type, method: dbLog.method, amount: Number(dbLog.amount), description: dbLog.description, origin: dbLog.origin, foto: dbLog.foto_base64, ticketId: dbLog.ticket_id || dbLog.ticketId, date: dbLog.date, time: dbLog.time });
+                            }
+                        });
+                        // Ordenar por fecha y hora descendente
                         dbState.logs.sort((a, b) => {
                             const dtA = a.date.split('/').reverse().join('') + a.time;
                             const dtB = b.date.split('/').reverse().join('') + b.time;
                             return dtB.localeCompare(dtA);
                         });
-                    } else { dbState.logs = []; }
-
+                    }
                 } catch(e) {
                     console.log("Aviso: Error conectando a las tablas. Manteniendo datos locales intactos.", e);
                 }
@@ -2031,8 +2056,11 @@
                 localStorage.setItem('vip_cUser', cUser);
                 localStorage.setItem('vip_cPin', cPin);
                 localStorage.setItem('vip_cAdminPin', cAdminPin);
-                saveLocalDB();
                 
+                // 3. Forzamos la subida de todo a Supabase por si faltaban datos en la nube (ESPERA OBLIGATORIA)
+                saveLocalDB();
+                await syncToCloud();
+
                 document.getElementById('login-pin').value = '';
                 if(btn) { btn.innerText = 'INICIAR SESIÓN'; btn.disabled = false; }
                 go('view-roles');
@@ -2660,9 +2688,20 @@
                 const tktPayload = dbState.tickets.map(t => ({ id: t.id, local_id: cUser, qty: Number(t.qty), product: t.product, category: t.category, amount: Number(t.amount), origin: t.origin, method: t.method, status: t.status, date: t.date, time: t.time }));
                 const logPayload = dbState.logs.map(l => ({ id: l.id, local_id: cUser, type: l.type, method: l.method, amount: Number(l.amount), description: l.description, origin: l.origin, foto_base64: l.foto || null, ticket_id: l.ticketId || null, date: l.date, time: l.time }));
 
-                if (invPayload.length) await _supabase.from('inventario').upsert(invPayload);
-                if (tktPayload.length) await _supabase.from('tickets').upsert(tktPayload);
-                if (logPayload.length) await _supabase.from('logs').upsert(logPayload);
+                if (invPayload.length) {
+                    const { error } = await _supabase.from('inventario').upsert(invPayload);
+                    if (error) console.error("Error inventario Supabase:", error);
+                }
+                
+                if (tktPayload.length) {
+                    const { error } = await _supabase.from('tickets').upsert(tktPayload);
+                    if (error) console.error("Error tickets Supabase:", error);
+                }
+                
+                if (logPayload.length) {
+                    const { error } = await _supabase.from('logs').upsert(logPayload);
+                    if (error) console.error("Error logs Supabase:", error);
+                }
 
                 const { data: extBarras } = await _supabase.from('barras').select('nombre').eq('local_id', cUser);
                 const nombresActuales = extBarras ? extBarras.map(b=>b.nombre) : [];
@@ -2682,7 +2721,7 @@
                 
                 return true;
             } catch(e) { 
-                console.error("Sync error:", e);
+                console.error("Sync error general:", e);
                 return false;
             }
         }
