@@ -1481,6 +1481,7 @@
                 <input type="text" id="reg-local" class="input-lux" placeholder="Nombre del Boliche / Local">
                 <input type="password" id="reg-pin" class="input-lux" placeholder="PIN Cajeros (4 dígitos)" maxlength="4">
                 <input type="password" id="reg-admin" class="input-lux" placeholder="PIN Director (4 dígitos)" maxlength="4">
+                <input type="number" id="reg-whatsapp" class="input-lux" placeholder="WhatsApp del Dueño (Ej: 54911...)">
                 <button class="btn btn-purple" onclick="registerAccount()" style="margin-bottom: 0; margin-top: 6px;">ACTIVAR MIS 15 DÍAS GRATIS</button>
             </div>
         </div>
@@ -1859,6 +1860,7 @@
             if(realtimeChannel) { _supabase.removeChannel(realtimeChannel); }
             localStorage.removeItem('vip_cUser');
             localStorage.removeItem('vip_cPin');
+            localStorage.removeItem('vip_cWhatsApp');
             location.reload();
         }
         // ======================================
@@ -1867,7 +1869,7 @@
         const supabaseKey = 'sb_publishable_xo7-uUQqtWvEWoLGqqlrsg_rxdroLx4';
         const _supabase = supabase.createClient(supabaseUrl, supabaseKey);
         
-        let cUser = "", cPin = "", cAdminPin = "";
+        let cUser = "", cPin = "", cAdminPin = "", cWhatsApp = "";
         let dbState = { logs: [], tickets: [], inventory: [], barras: [] };
         let expr = "", currentModule = "", currentBarraId = "";
         let selProd = null;
@@ -2022,7 +2024,9 @@
             let local = (document.getElementById('reg-local').value||'').trim().toUpperCase();
             let pin   = (document.getElementById('reg-pin').value||'').trim();
             let adm   = (document.getElementById('reg-admin').value||'').trim();
-            if (!local || !pin || !adm) return showPremiumAlert("DATOS FALTANTES", "Completá todos los campos para crear la franquicia.");
+            let wa    = (document.getElementById('reg-whatsapp').value||'').trim(); // <-- Acá capturamos el WhatsApp
+            
+            if (!local || !pin || !adm || !wa) return showPremiumAlert("DATOS FALTANTES", "Completá todos los campos para crear la franquicia.");
             
             try {
                 const { data } = await _supabase.from('usuarios').select('local').eq('local', local);
@@ -2031,7 +2035,8 @@
                 const now = Date.now();
                 const expiresAt = now + (15 * 24 * 60 * 60 * 1000);
 
-                const appDataInicial = { sub_status: 'TRIAL', expires_at: expiresAt };
+                // Guardamos el WhatsApp dentro del paquete app_data para no romper tu base SQL original
+                const appDataInicial = { sub_status: 'TRIAL', expires_at: expiresAt, whatsapp: wa };
 
                 const { error } = await _supabase.from('usuarios').insert([{
                     local, pin, admin_pin: adm, app_data: appDataInicial
@@ -2065,6 +2070,7 @@
                 const savedPin = localStorage.getItem('vip_cPin');
                 if (local === savedUser && pin === savedPin) {
                     cUser = local; cPin = pin; cAdminPin = localStorage.getItem('vip_cAdminPin') || "0000";
+                    cWhatsApp = localStorage.getItem('vip_cWhatsApp') || "";
                     go('view-roles');
                     renderAdmin();
                     if(!isAuto) showPremiumAlert("MODO OFFLINE", "Iniciaste sesión sin internet. Los datos se guardarán en tu celular.", "success");
@@ -2097,6 +2103,10 @@
                 window.vencimiento = cd.expires_at;
                 cUser = data.local; cPin = pin; cAdminPin = data.admin_pin || "0000";
                 
+                // Levantamos el WhatsApp de la nube a la variable global y lo guardamos offline por las dudas
+                cWhatsApp = cd.whatsapp || "";
+                localStorage.setItem('vip_cWhatsApp', cWhatsApp);
+
                 try {
                     const [resBarras, resInv, resTickets, resLogs] = await Promise.all([
                         _supabase.from('barras').select('nombre').eq('local_id', cUser),
@@ -2694,8 +2704,18 @@
             
             await syncToCloud();
 
-            if (navigator.onLine) { window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(`🔒 *CIERRE DE TURNO: ${currentBarraId.toUpperCase()}*\n*Franquicia:* ${cUser}\n*Fecha:* ${getDateStr()} - ${getTimeStr()}\n\n💵 *Efectivo:* $${fmt(efe)}\n🏦 *Transferencia:* $${fmt(tra)}\n🎫 *Cantidad:* ${qty}\n\n💰 *TOTAL RECAUDADO:* $${fmt(tot)}`)}`, '_blank'); } 
-            else { showPremiumAlert("CIERRE OFFLINE", "Turno cerrado. El WhatsApp no se puede enviar sin conexión a internet."); }
+            // <-- ACÁ ARMAMOS EL LINK CON EL NÚMERO DEL DUEÑO SI EXISTE -->
+            const mensajeTexto = `🔒 *CIERRE DE TURNO: ${currentBarraId.toUpperCase()}*\n*Franquicia:* ${cUser}\n*Fecha:* ${getDateStr()} - ${getTimeStr()}\n\n💵 *Efectivo:* $${fmt(efe)}\n🏦 *Transferencia:* $${fmt(tra)}\n🎫 *Cantidad:* ${qty}\n\n💰 *TOTAL RECAUDADO:* $${fmt(tot)}`;
+            
+            let urlWA = cWhatsApp 
+                ? `https://api.whatsapp.com/send?phone=${cWhatsApp}&text=${encodeURIComponent(mensajeTexto)}` 
+                : `https://api.whatsapp.com/send?text=${encodeURIComponent(mensajeTexto)}`;
+
+            if (navigator.onLine) { 
+                window.open(urlWA, '_blank'); 
+            } else { 
+                showPremiumAlert("CIERRE OFFLINE", "Turno cerrado. El WhatsApp no se puede enviar sin conexión a internet."); 
+            }
             go('view-roles');
         }
         
@@ -2930,6 +2950,7 @@
                     const oldData = typeof data.app_data === 'string' ? JSON.parse(data.app_data) : data.app_data;
                     if (oldData.expires_at) payload.expires_at = oldData.expires_at;
                     if (oldData.sub_status) payload.sub_status = oldData.sub_status;
+                    if (oldData.whatsapp) payload.whatsapp = oldData.whatsapp; // Mantiene el whatsapp sincronizado
                 }
                 await _supabase.from('usuarios').update({ app_data: payload }).eq('local', cUser);
                 
