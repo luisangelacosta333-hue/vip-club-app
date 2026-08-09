@@ -2018,37 +2018,58 @@
             }
         });
         
-        /* ========== REGISTRO / LOGIN + LÓGICA DE 15 DÍAS Y UALÁ ========== */
+        /* ========== REGISTRO / LOGIN + LÓGICA DE 15 DÍAS Y UALÁ (AUTH FANTASMA) ========== */
         async function registerAccount() {
             if (!navigator.onLine) return showPremiumAlert("SIN INTERNET", "Necesitás conexión a internet para dar de alta una franquicia.");
             let local = (document.getElementById('reg-local').value||'').trim().toUpperCase();
             let pin   = (document.getElementById('reg-pin').value||'').trim();
             let adm   = (document.getElementById('reg-admin').value||'').trim();
-            let wa    = (document.getElementById('reg-whatsapp').value||'').trim(); // <-- Acá capturamos el WhatsApp
+            let waInput = (document.getElementById('reg-whatsapp').value||'').trim();
             
-            if (!local || !pin || !adm || !wa) return showPremiumAlert("DATOS FALTANTES", "Completá todos los campos para crear la franquicia.");
+            if (!local || !pin || !adm || !waInput) return showPremiumAlert("DATOS FALTANTES", "Completá todos los campos para crear la franquicia.");
             
             try {
-                const { data } = await _supabase.from('usuarios').select('local').eq('local', local);
-                if (data && data.length) return showPremiumAlert("ERROR", "Ese Boliche ya se encuentra registrado en el sistema.");
+                let waLimpio = waInput.replace(/\s+/g, '');
+
+                // 🥷 1. ANTIPÍCARO
+                const { data: celData } = await _supabase.from('usuarios').select('id').eq('whatsapp', waLimpio).maybeSingle();
+                if (celData) return showPremiumAlert("ANTIPÍCARO", "Este número de WhatsApp ya tiene una cuenta registrada.");
                 
+                const { data: locData } = await _supabase.from('usuarios').select('id').eq('local', local).maybeSingle();
+                if (locData) return showPremiumAlert("DUPLICADO", "Ese Boliche ya se encuentra registrado en el sistema.");
+                
+                // 🥷 2. MAGIA NINJA: AUTH FANTASMA
+                const correoTrucho = `${waLimpio}@vipclub.com`;
+                const passwordSegura = pin + "IA";
+                const { data: authData, error: authError } = await _supabase.auth.signUp({
+                    email: correoTrucho,
+                    password: passwordSegura
+                });
+
+                if (authError) return showPremiumAlert("ERROR AUTH", authError.message);
+
+                // 🥷 3. REGISTRO OFICIAL EN LA BASE DE DATOS
                 const now = Date.now();
                 const expiresAt = now + (15 * 24 * 60 * 60 * 1000);
-
-                // Guardamos el WhatsApp dentro del paquete app_data para no romper tu base SQL original
-                const appDataInicial = { sub_status: 'TRIAL', expires_at: expiresAt, whatsapp: wa };
+                const appDataInicial = { sub_status: 'TRIAL', expires_at: expiresAt };
 
                 const { error } = await _supabase.from('usuarios').insert([{
-                    local, pin, admin_pin: adm, app_data: appDataInicial
+                    local: local, 
+                    pin: pin, 
+                    admin_pin: adm, 
+                    whatsapp: waLimpio,
+                    app_data: appDataInicial
                 }]);
                 
                 if (error) throw error;
 
+                // Crear barra por defecto
                 await _supabase.from('barras').insert([{ local_id: local, nombre: "Barra 1" }]);
 
                 showPremiumAlert("¡FRANQUICIA CREADA!", "Tus 15 DÍAS GRATIS fueron activados. Ya podés ingresar al sistema.", "success");
                 document.getElementById('login-local').value = local;
                 document.getElementById('login-pin').value = pin;
+                window.scrollTo({top: 0, behavior: 'smooth'}); 
             } catch (e) { showPremiumAlert("ERROR DE CONEXIÓN", "No pudimos conectar con la bóveda digital. Revisá tu internet."); }
         }
         
@@ -2084,27 +2105,40 @@
             }
             
             try {
-                const { data, error } = await _supabase.from('usuarios').select('*').eq('local', local).eq('pin', pin).single();
+                // 🥷 1. BUSCAMOS POR LA VENTANITA DE LECTURA (RLS)
+                const { data, error } = await _supabase.from('usuarios').select('*').eq('local', local).eq('pin', pin).maybeSingle();
+                
                 if (error || !data) {
                     if(!isAuto) showPremiumAlert("ACCESO DENEGADO", "Credenciales inválidas. Verificá tus datos.");
                     if(btn) { btn.innerText = 'INICIAR SESIÓN'; btn.disabled = false; }
                     return;
                 }
+
+                // 🥷 2. MAGIA NINJA LOGIN: DESTRABAMOS EL CANDADO OFICIAL (RLS)
+                if (data.whatsapp) {
+                    const correoTrucho = `${data.whatsapp}@vipclub.com`;
+                    const passwordSegura = pin + "IA";
+                    const { error: signInError } = await _supabase.auth.signInWithPassword({
+                        email: correoTrucho,
+                        password: passwordSegura
+                    });
+                    if (signInError) console.warn("Aviso Auth:", signInError.message);
+                }
                 
                 const cd = typeof data.app_data === 'string' ? JSON.parse(data.app_data) : data.app_data;
 
-                if (cd.expires_at && Date.now() > cd.expires_at) {
+                if (cd && cd.expires_at && Date.now() > cd.expires_at) {
                     window.tempUserData = { local: local, app_data: cd };
                     document.getElementById('modal-suscripcion').style.display = 'flex';
                     if(btn) { btn.innerText = 'INICIAR SESIÓN'; btn.disabled = false; }
                     return; 
                 }
                 
-                window.vencimiento = cd.expires_at;
+                window.vencimiento = cd ? cd.expires_at : null;
                 cUser = data.local; cPin = pin; cAdminPin = data.admin_pin || "0000";
                 
-                // Levantamos el WhatsApp de la nube a la variable global y lo guardamos offline por las dudas
-                cWhatsApp = cd.whatsapp || "";
+                // Levantamos el WhatsApp
+                cWhatsApp = data.whatsapp || "";
                 localStorage.setItem('vip_cWhatsApp', cWhatsApp);
 
                 try {
@@ -2118,7 +2152,7 @@
                     if (resBarras && resBarras.data) {
                         dbState.barras = resBarras.data.map(b => b.nombre);
                     }
-                    if (!dbState.barras.length) dbState.barras = []; // Eliminado forzar "Barra 1"
+                    if (!dbState.barras.length) dbState.barras = [];
 
                     if (resInv && resInv.data) {
                         resInv.data.forEach(dbItem => {
@@ -2162,7 +2196,7 @@
                 saveLocalDB();
                 await syncToCloud();
 
-                // 🌟 INICIAMOS EL MOTOR REALTIME EN MILISEGUNDOS 🌟
+                // 🌟 INICIAMOS EL MOTOR REALTIME 🌟
                 if(realtimeChannel) _supabase.removeChannel(realtimeChannel);
                 realtimeChannel = _supabase.channel('vip_realtime_' + cUser.replace(/\s+/g, ''))
                     .on('postgres_changes', { event: '*', schema: 'public', table: 'tickets', filter: `local_id=eq.${cUser}` }, payload => silentSyncDown())
@@ -2171,7 +2205,7 @@
                     .subscribe();
 
                 if(syncInterval) clearInterval(syncInterval);
-                syncInterval = setInterval(silentSyncDown, 5000); // Respaldo cada 5 segs por si el WebSocket se duerme
+                syncInterval = setInterval(silentSyncDown, 5000);
 
                 document.getElementById('login-pin').value = '';
                 if(btn) { btn.innerText = 'INICIAR SESIÓN'; btn.disabled = false; }
@@ -2289,9 +2323,8 @@
                 return showPremiumAlert("SIN INTERNET", "Necesitás conexión para eliminar de forma permanente.");
             }
 
-            isSyncing = true; // Cerrojo Mutex Activado
+            isSyncing = true; 
 
-            // 1. Destruimos primero en Supabase
             const { error: errInv } = await _supabase.from('inventario').delete().eq('local_id', cUser).eq('bar_id', n);
             const { error: errBarra } = await _supabase.from('barras').delete().eq('local_id', cUser).eq('nombre', n);
             
@@ -2301,7 +2334,6 @@
                 return showPremiumAlert("ERROR EN LA NUBE", "No se pudo eliminar. Verificá los permisos de tu base de datos.");
             }
 
-            // 2. Si se eliminó en la nube, lo volamos de la memoria de inmediato
             dbState.barras = dbState.barras.filter(b => b !== n);
             dbState.inventory = dbState.inventory.filter(i => !(i.category === 'bebida' && i.barId === n));
             
@@ -2311,7 +2343,7 @@
             saveLocalDB();
             renderAdmin(); 
 
-            isSyncing = false; // Cerrojo Mutex Desactivado
+            isSyncing = false; 
         }
         
         function selectBarraCarga(b) { activeBarraCarga = b; renderPillsCarga(); renderListaBebidasCarga(); }
@@ -2392,9 +2424,8 @@
                 return showPremiumAlert("SIN INTERNET", "Necesitás conexión para eliminar productos.");
             }
 
-            isSyncing = true; // Cerrojo Mutex Activado
+            isSyncing = true; 
 
-            // 1. Destruimos primero en Supabase
             const { error } = await _supabase.from('inventario').delete().eq('id', id);
 
             if (error) {
@@ -2403,13 +2434,12 @@
                 return showPremiumAlert("ERROR EN LA NUBE", "No se pudo eliminar el producto.");
             }
 
-            // 2. Si se eliminó en la nube, lo volamos de la memoria de inmediato
             dbState.inventory = dbState.inventory.filter(i => i.id !== id);
             
             saveLocalDB();
             renderAdmin();
 
-            isSyncing = false; // Cerrojo Mutex Desactivado
+            isSyncing = false; 
         }
 
         function verFoto(b64) {
