@@ -1738,6 +1738,12 @@
                 💳 PAGAR CON UALÁ
             </button>
             <p id="uala-loading" style="display:none; color:var(--vip-gold); font-weight:bold; margin-bottom: 15px; font-size:0.85rem;">Generando link seguro de Ualá...</p>
+            
+            <!-- BOTÓN MÁGICO AÑADIDO ACÁ PARA DESTRABAR LA APP -->
+            <button class="btn-outline" id="btn-verificar" onclick="verificarPagoEnVivo()" style="margin-bottom: 12px; color: var(--vip-gold); border-color: rgba(255,215,0,0.4); background: rgba(255,215,0,0.05);">
+                🔄 YA PAGUÉ (VERIFICAR)
+            </button>
+
             <button class="btn-outline" onclick="logout()">
                 CERRAR SESIÓN
             </button>
@@ -3113,7 +3119,44 @@
                 }).catch(err => console.log('Error Service Worker', err));
             });
         }
+
+        // ========================================================
+        // NUEVA FUNCIÓN: VERIFICACIÓN EN VIVO DE UALÁ
+        // ========================================================
+        async function verificarPagoEnVivo() {
+            let currentUser = cUser || (window.tempUserData ? window.tempUserData.local : null);
+            if (!currentUser) return showPremiumAlert("ERROR", "Usuario no identificado.");
+            
+            const btn = document.getElementById('btn-verificar');
+            const txtOriginal = btn.innerText;
+            btn.innerText = '⏳ VERIFICANDO...';
+            
+            try {
+                const { data, error } = await _supabase
+                    .from('usuarios')
+                    .select('app_data')
+                    .eq('local', currentUser)
+                    .single();
+                    
+                if (error) throw error;
+                    
+                if (data && data.app_data) {
+                    const cd = typeof data.app_data === 'string' ? JSON.parse(data.app_data) : data.app_data;
+                    
+                    if (cd.expires_at && Date.now() < cd.expires_at) {
+                        document.getElementById('modal-suscripcion').style.display = 'none';
+                        alert("✅ ¡PAGO APROBADO! Tu suscripción fue renovada exitosamente. Se recargará el sistema.");
+                        location.reload();
+                    } else {
+                        showPremiumAlert("⏳ AÚN NO IMPACTA", "Ualá todavía está procesando el pago. Esperá unos segundos y volvé a tocar el botón.", "error");
+                    }
+                }
+            } catch(e) {
+                showPremiumAlert("ERROR", "Fallo de conexión al verificar el pago en la base de datos.");
+            }
+            
+            btn.innerText = txtOriginal;
+        }
     </script>
 </body>
 </html>
-
