@@ -1718,37 +1718,42 @@
          MODALES
          ============================================== -->
     
-    <!-- MODAL BLOQUEO UALÁ -->
+    <!-- MODAL NUEVO PAYWALL CON IA -->
     <div class="modal" id="modal-suscripcion">
-        <div class="modal-content" style="border-color: rgba(255,215,0,0.5); padding: 30px 24px; background: linear-gradient(145deg, rgba(30,20,0,0.95), rgba(10,5,0,0.98));">
+        <div class="modal-content" style="border-color: rgba(0,240,255,0.5); padding: 30px 24px; background: linear-gradient(145deg, rgba(20,20,30,0.95), rgba(10,10,15,0.98));">
             <div style="font-size: 3.5rem; margin-bottom: 10px; line-height: 1;">⏳</div>
-            <h2 class="font-display neon-gold" style="font-size: 1.4rem; margin: 0 0 15px; letter-spacing: 2px;">TIEMPO AGOTADO</h2>
+            <h2 class="font-display neon-cyan" style="font-size: 1.4rem; margin: 0 0 15px; letter-spacing: 2px;">TIEMPO AGOTADO</h2>
             <p style="color: var(--text-soft); font-size: 0.95rem; margin-bottom: 20px; font-weight: 500; line-height: 1.5;">
-                Tu período de prueba o suscripción mensual ha finalizado. Para seguir usando el sistema y acceder a tus datos, renová tu acceso VIP.
+                Tu período de prueba finalizó. Renovate por 30 días para seguir usando el sistema VIP.
             </p>
             
-            <div style="background: rgba(255,255,255,0.05); border-radius: 16px; padding: 15px; margin-bottom: 20px; border: 1px solid rgba(255,215,0,0.2);">
+            <div style="background: rgba(255,255,255,0.05); border-radius: 16px; padding: 15px; margin-bottom: 20px; border: 1px solid rgba(0,240,255,0.2);">
                 <p style="font-family: 'Orbitron', sans-serif; color: white; font-size: 2rem; font-weight: 900; margin: 0;">
-                    $19.000 <span style="font-size: 1rem; color: var(--vip-gold);">/ mes</span>
+                    $19.000 <span style="font-size: 1rem; color: var(--neon-cyan);">/ mes</span>
                 </p>
             </div>
 
-            <!-- BOTÓN UALÁ -->
-            <button id="btn-pagar-uala" class="btn btn-gold" onclick="pagarConUala()" style="margin-bottom: 10px;">
-                💳 PAGAR CON UALÁ
-            </button>
-            <p id="uala-loading" style="display:none; color:var(--vip-gold); font-weight:bold; margin-bottom: 15px; font-size:0.85rem;">Generando link seguro de Ualá...</p>
+            <div style="background: rgba(180,0,255,0.05); padding: 15px; border-radius: 15px; margin-bottom: 15px; border: 1px dashed rgba(180,0,255,0.4); text-align: left;">
+                <p style="margin: 0 0 5px 0; color: var(--text-gray); font-size: 0.85rem; text-align:center;">1. Transferí exactamente $19.000 a este Alias:</p>
+                <p style="margin: 0 0 15px 0; color: white; font-size: 1.3rem; font-weight: 900; letter-spacing: 1px; text-align: center; font-family:'Orbitron',sans-serif; background:rgba(0,0,0,0.3); padding:8px; border-radius:10px; border:1px solid rgba(0,240,255,0.2)">noir.elite.ceo</p>
+                
+                <p style="margin: 0 0 10px 0; color: var(--text-gray); font-size: 0.85rem; text-align:center;">2. Subí la foto de la transferencia:</p>
+                <div style="display: flex; gap: 10px;">
+                    <button class="btn btn-cyan" style="flex: 1; padding: 12px; font-size: 0.85rem; margin-bottom: 0; min-height: 48px;" onclick="isPaywallUpload=true; document.getElementById('foto-input-galeria-paywall').click();">🖼️ GALERÍA</button>
+                    <button class="btn-outline" style="border-color: rgba(180,0,255,0.4); color: var(--neon-purple); flex: 1; padding: 12px; font-size: 0.85rem; margin-bottom: 0; min-height: 48px;" onclick="isPaywallUpload=true; document.getElementById('foto-input-camara-paywall').click();">📷 CÁMARA</button>
+                </div>
+            </div>
             
-            <!-- BOTÓN MÁGICO AÑADIDO ACÁ PARA DESTRABAR LA APP -->
-            <button class="btn-outline" id="btn-verificar" onclick="verificarPagoEnVivo()" style="margin-bottom: 12px; color: var(--vip-gold); border-color: rgba(255,215,0,0.4); background: rgba(255,215,0,0.05);">
-                🔄 YA PAGUÉ (VERIFICAR)
-            </button>
+            <p id="ia-status" style="display:none; color:var(--neon-green); font-weight:900; margin-bottom: 15px; font-size:0.85rem; text-transform: uppercase;">🤖 La IA está verificando el ticket...</p>
 
-            <button class="btn-outline" onclick="logout()">
+            <button class="btn-outline" onclick="logout()" style="margin-bottom: 0; margin-top: 10px;">
                 CERRAR SESIÓN
             </button>
         </div>
     </div>
+    
+    <input type="file" id="foto-input-camara-paywall" accept="image/*" capture="environment" style="display:none;" onchange="procesarFotoPaywall(event)">
+    <input type="file" id="foto-input-galeria-paywall" accept="image/*" style="display:none;" onchange="procesarFotoPaywall(event)">
 
     <div class="modal" id="modal-admin-pin">
         <div class="modal-content" style="border-color: rgba(255,215,0,0.35);">
@@ -1882,6 +1887,71 @@
         let html5QrcodeScanner = null, html5QrBarra = null;
         let activeBarraCarga = "", activeHistorialSector = "Boletería"; 
         let isSyncing = false; // <--- NUEVO: CERROJO MUTEX
+
+        let isPaywallUpload = false;
+
+        function procesarFotoPaywall(e) { 
+            const f = e.target.files[0]; 
+            if(!f) return; 
+            
+            document.getElementById('ia-status').style.display = 'block'; 
+            document.getElementById('ia-status').innerText = "⏳ LEYENDO COMPROBANTE...";
+            
+            const r = new FileReader(); 
+            r.readAsDataURL(f); 
+            r.onload = ev => { 
+                const img = new Image(); 
+                img.src = ev.target.result; 
+                img.onload = async () => { 
+                    const c = document.createElement('canvas'); 
+                    let targetWidth = 800; // RESOLUCIÓN OPTIMIZADA PARA LA IA
+                    let scale = targetWidth / img.width; 
+                    c.width = targetWidth; 
+                    c.height = img.height * scale; 
+                    c.getContext('2d').drawImage(img, 0, 0, c.width, c.height); 
+                    let base64 = c.toDataURL('image/jpeg', 0.80);
+                    
+                    ejecutarValidacionPaywallIA(base64); 
+                } 
+                img.onerror = () => { 
+                    document.getElementById('ia-status').style.display = 'none'; 
+                    showPremiumAlert("ERROR", "Error procesando imagen"); 
+                }
+            } 
+        }
+
+        async function ejecutarValidacionPaywallIA(base64str) { 
+            let currentUser = cUser || (window.tempUserData ? window.tempUserData.local : null);
+            if (!currentUser) {
+                showPremiumAlert("ERROR", "No se detectó el local. Volvé a iniciar sesión.");
+                return;
+            }
+
+            document.getElementById('ia-status').innerText = '🤖 IA verificando ticket...'; 
+            document.getElementById('ia-status').style.display = 'block';
+            try { 
+                let r = await fetch('/api/validate_payment', { 
+                    method: 'POST', 
+                    headers: {'Content-Type': 'application/json'}, 
+                    body: JSON.stringify({ local: currentUser, fotoBase64: base64str }) 
+                }); 
+                let d = await r.json(); 
+                document.getElementById('ia-status').style.display = 'none'; 
+                if(d.success) { 
+                    showPremiumAlert("✅ ÉXITO TOTAL", d.msg + " El sistema se recargará en 3 segundos...", "success"); 
+                    document.getElementById('modal-suscripcion').style.display = 'none'; 
+                    setTimeout(() => location.reload(), 3000); 
+                } else { 
+                    showPremiumAlert("❌ TICKET RECHAZADO", d.msg); 
+                } 
+            } catch(e) { 
+                showPremiumAlert("❌ ERROR DE RED", "Falló el enlace con la Inteligencia Artificial."); 
+                document.getElementById('ia-status').style.display = 'none'; 
+            } 
+            isPaywallUpload = false; 
+            document.getElementById('foto-input-camara-paywall').value = ""; 
+            document.getElementById('foto-input-galeria-paywall').value = ""; 
+        }
 
         /* ========== MOTOR DE SINCRONIZACIÓN SILENCIOSA ========== */
         async function silentSyncDown() {
@@ -2221,39 +2291,6 @@
                 if(!isAuto) showPremiumAlert("ERROR DE RED", "No se pudo conectar al servidor."); 
                 if(btn) { btn.innerText = 'INICIAR SESIÓN'; btn.disabled = false; }
             }
-        }
-
-        /* ========== INTEGRACIÓN UALÁ + VERCEL ========== */
-        async function pagarConUala() {
-            if (!navigator.onLine) return showPremiumAlert("SIN INTERNET", "No podés procesar el pago sin conexión a internet.");
-            
-            let btn = document.getElementById('btn-pagar-uala');
-            let loading = document.getElementById('uala-loading');
-            if(loading) loading.style.display = 'block';
-            if(btn) btn.disabled = true;
-
-            try { 
-                let res = await fetch('/api/checkout_uala', { 
-                    method: 'POST', 
-                    headers: { 'Content-Type': 'application/json' }, 
-                    body: JSON.stringify({ local: window.tempUserData ? window.tempUserData.local : cUser }) 
-                }); 
-                
-                let data = await res.json(); 
-                
-                if(loading) loading.style.display = 'none'; 
-                if(btn) btn.disabled = false;
-
-                if(data.success) { 
-                    window.open(data.link, '_blank'); 
-                } else { 
-                    showPremiumAlert("ERROR", data.msg || "Error generando link de pago."); 
-                } 
-            } catch(e) { 
-                if(loading) loading.style.display = 'none';
-                if(btn) btn.disabled = false;
-                showPremiumAlert("MODO LOCAL", "La conexión real con Ualá funcionará una vez que subas el HTML y la carpeta /api a Vercel.", "error"); 
-            } 
         }
         
         /* ========== MÓDULOS ========== */
@@ -3119,44 +3156,7 @@
                 }).catch(err => console.log('Error Service Worker', err));
             });
         }
-
-        // ========================================================
-        // NUEVA FUNCIÓN: VERIFICACIÓN EN VIVO DE UALÁ
-        // ========================================================
-        async function verificarPagoEnVivo() {
-            let currentUser = cUser || (window.tempUserData ? window.tempUserData.local : null);
-            if (!currentUser) return showPremiumAlert("ERROR", "Usuario no identificado.");
-            
-            const btn = document.getElementById('btn-verificar');
-            const txtOriginal = btn.innerText;
-            btn.innerText = '⏳ VERIFICANDO...';
-            
-            try {
-                const { data, error } = await _supabase
-                    .from('usuarios')
-                    .select('app_data')
-                    .eq('local', currentUser)
-                    .single();
-                    
-                if (error) throw error;
-                    
-                if (data && data.app_data) {
-                    const cd = typeof data.app_data === 'string' ? JSON.parse(data.app_data) : data.app_data;
-                    
-                    if (cd.expires_at && Date.now() < cd.expires_at) {
-                        document.getElementById('modal-suscripcion').style.display = 'none';
-                        alert("✅ ¡PAGO APROBADO! Tu suscripción fue renovada exitosamente. Se recargará el sistema.");
-                        location.reload();
-                    } else {
-                        showPremiumAlert("⏳ AÚN NO IMPACTA", "Ualá todavía está procesando el pago. Esperá unos segundos y volvé a tocar el botón.", "error");
-                    }
-                }
-            } catch(e) {
-                showPremiumAlert("ERROR", "Fallo de conexión al verificar el pago en la base de datos.");
-            }
-            
-            btn.innerText = txtOriginal;
-        }
     </script>
 </body>
 </html>
+
