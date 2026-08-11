@@ -21,12 +21,18 @@ export default async function handler(req, res) {
             return res.status(500).json({ success: false, msg: 'Falta en Vercel: ' + faltantes.join(' y ') });
         }
 
-        // 1. LA ORDEN ESTRICTA PARA OPENAI (AJUSTADA A $19.000)
-        const systemPrompt = `Sos un auditor financiero extremadamente estricto. Analizá este comprobante de transferencia bancaria.
+        // Le pasamos la fecha exacta de hoy a la IA para que pueda "quemar" tickets viejos
+        const fechaHoy = new Date().toLocaleDateString('es-AR', { timeZone: 'America/Argentina/Buenos_Aires' });
+
+        // 1. LA NUEVA ORDEN ESTRICTA (ANTIFRAUDE + LECTURA FLEXIBLE)
+        const systemPrompt = `Sos un auditor financiero extremadamente estricto. Analizá este comprobante de transferencia bancaria. 
+        Tene en cuenta que la fecha de hoy es: ${fechaHoy}.
+        
         Debe cumplir TODAS estas condiciones sin excepción:
         1. El monto transferido debe ser EXACTAMENTE $19.000 (diecinueve mil pesos argentinos).
-        2. El destinatario debe ser obligatoriamente: "Luis Ángel Acosta", O el Alias: "noir.elite.ceo", O el CBU: "0110257630025717844115".
-        3. El estado de la transferencia debe ser "Aprobada", "Exitosa" o similar. No se aceptan transferencias programadas ni pendientes.
+        2. El destinatario debe ser obligatoriamente: "Luis Angel Acosta" (o variaciones), O el Alias: "noir.elite.ceo", O el CBU: "0110257630025717844115".
+        3. ESTADO DE TRANSFERENCIA: Debe ser una transferencia real (Ej: dice "Comprobante de transferencia", "Aprobada", "Exitosa", o tiene un número de "Id Op."). Rechazá categóricamente si dice "Programada", "Pendiente" o "En proceso".
+        4. SISTEMA ANTIFRAUDE (QUEMAR TICKET): Revisá la fecha del comprobante. Tiene que ser una fecha muy reciente (de hoy o máximo de las últimas 48 horas). Si la fecha es vieja, rechazalo argumentando: "Comprobante rechazado: El ticket es viejo o ya fue utilizado anteriormente."
         
         Devolveme UNICAMENTE un objeto JSON estricto con este formato: {"aprobado": true, "motivo": "Explicación corta"}.
         Si falta un solo dato o algo es sospechoso, respondé {"aprobado": false, "motivo": "Por qué se rechazó"}.`;
@@ -70,7 +76,6 @@ export default async function handler(req, res) {
         // 4. SI LA IA APRUEBA, ABRIMOS LA BÓVEDA EN SUPABASE Y DAMOS 30 DÍAS DE RENOVACIÓN
         const supabaseUrl = 'https://drpjcmznauposqlhaveo.supabase.co';
         
-        // A. Rescatamos el dato de WhatsApp por si acaso no borrarlo
         const getRes = await fetch(`${supabaseUrl}/rest/v1/usuarios?local=eq.${encodeURIComponent(local)}&select=app_data`, {
             headers: {
                 'apikey': supabaseKey,
@@ -84,7 +89,6 @@ export default async function handler(req, res) {
             if (oldData.whatsapp) newAppData.whatsapp = oldData.whatsapp;
         }
 
-        // B. Escribimos la aprobación oficial
         const updateRes = await fetch(`${supabaseUrl}/rest/v1/usuarios?local=eq.${encodeURIComponent(local)}`, {
             method: 'PATCH',
             headers: {
@@ -106,4 +110,3 @@ export default async function handler(req, res) {
         return res.status(500).json({ success: false, msg: error.message });
     }
 }
-
