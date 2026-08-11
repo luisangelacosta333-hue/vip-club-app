@@ -616,7 +616,6 @@
                     <option value="barra5">🍸 BARRA 5 (Mensaje: "Estoy en la Barra 5...")</option>
                 </select>
 
-                <input type="text" id="banner-empleado-nombre" class="input-lux" placeholder="Nombre del encargado (Ej: José, Jesús)">
                 <input type="number" id="banner-wa-number" class="input-lux" placeholder="WhatsApp del empleado (Ej: 5491123456789)">
                 <button class="btn" style="background: linear-gradient(135deg, #00ff94 0%, #00b8d4 100%); color: #001018; margin-bottom: 14px;" onclick="generarQRBanner()">🛠️ GENERAR QR PARA IMPRENTA</button>
 
@@ -1836,9 +1835,9 @@
             }
 
             if (!data) {
-                box.innerHTML = `<div class="scanner-big-icon neon-red">⛔</div><h2 class="font-display neon-red" style="font-size:1.8rem;margin:15px 0;">QR INVÁLIDO</h2><p style="color:var(--text-soft);font-size:0.9rem;margin:10px 0 15px;">Ticket no encontrado en la base de datos.</p><button class="btn btn-purple" onclick="cerrarAlerta()">VOLVER A ESCANEAR</button>`; box.style.borderColor = 'rgba(255,45,85,0.4)';
+                box.innerHTML = `<div class="scanner-big-icon neon-red">⛔</div><h2 class="font-display neon-red" style="font-size:1.8rem;margin:15px 0;">QR INVÁLIDO</h2><p style="color:var(--text-soft);font-size:0.9rem;margin-bottom:15px;">Ticket no encontrado en la base de datos.</p><button class="btn btn-purple" onclick="cerrarAlerta()">VOLVER A ESCANEAR</button>`; box.style.borderColor = 'rgba(255,45,85,0.4)';
             } else if (data.status !== 'ACTIVO') {
-                box.innerHTML = `<div class="scanner-big-icon neon-red">🔥</div><h2 class="font-display neon-red" style="font-size:1.6rem;margin:15px 0;">QR YA USADO</h2><p style="color:var(--text-soft);font-size:0.9rem;margin:10px 0 15px;">Este ticket ya ingresó antes.</p><button class="btn btn-purple" onclick="cerrarAlerta()">VOLVER A ESCANEAR</button>`; box.style.borderColor = 'rgba(255,45,85,0.4)';
+                box.innerHTML = `<div class="scanner-big-icon neon-red">🔥</div><h2 class="font-display neon-red" style="font-size:1.6rem;margin:15px 0;">QR YA USADO</h2><p style="color:var(--text-soft);font-size:0.9rem;margin-bottom:15px;">Este ticket ya ingresó antes.</p><button class="btn btn-purple" onclick="cerrarAlerta()">VOLVER A ESCANEAR</button>`; box.style.borderColor = 'rgba(255,45,85,0.4)';
             } else if (data.category !== 'entrada') {
                 box.innerHTML = `<div class="scanner-big-icon neon-cyan">🍸</div><h2 class="font-display neon-cyan" style="font-size:1.5rem;margin:15px 0;">NO ES ENTRADA</h2><p style="color:var(--text-soft);font-size:0.95rem;">El cliente debe retirar esto en <b class="neon-cyan">${data.origin}</b>:</p><p style="color:white;font-weight:bold;margin-bottom:15px;">${data.qty}x ${data.product}</p><button class="btn btn-cyan" onclick="cerrarAlerta()">VOLVER A ESCANEAR</button>`; box.style.borderColor = 'rgba(0,240,255,0.4)';
             } else {
@@ -2043,17 +2042,15 @@
         function generarQRBanner() {
             const num = (document.getElementById('banner-wa-number').value || '').trim();
             const sector = document.getElementById('banner-sector').value;
-            const empleadoNombre = (document.getElementById('banner-empleado-nombre').value || '').trim();
             
             if(!num) return showPremiumAlert("DATOS FALTANTES", "Ingresá el número de WhatsApp del empleado primero.");
-            if(!empleadoNombre) return showPremiumAlert("DATOS FALTANTES", "Ingresá el nombre del encargado (ej. Jesús, José).");
             
-            let mensaje = `Hola, me llamo ${empleadoNombre}. Quiero mi entrada`;
-            if (sector === "barra1") mensaje = `Hola, me llamo ${empleadoNombre}. Estoy en la Barra 1, quiero pedir tragos`;
-            if (sector === "barra2") mensaje = `Hola, me llamo ${empleadoNombre}. Estoy en la Barra 2, quiero pedir tragos`;
-            if (sector === "barra3") mensaje = `Hola, me llamo ${empleadoNombre}. Estoy en la Barra 3, quiero pedir tragos`;
-            if (sector === "barra4") mensaje = `Hola, me llamo ${empleadoNombre}. Estoy en la Barra 4, quiero pedir tragos`;
-            if (sector === "barra5") mensaje = `Hola, me llamo ${empleadoNombre}. Estoy en la Barra 5, quiero pedir tragos`;
+            let mensaje = `Hola, mi nombre es [Escribí tu nombre acá]. Quiero mi entrada`;
+            if (sector === "barra1") mensaje = `Hola, mi nombre es [Escribí tu nombre acá]. Estoy en la Barra 1, quiero pedir tragos`;
+            if (sector === "barra2") mensaje = `Hola, mi nombre es [Escribí tu nombre acá]. Estoy en la Barra 2, quiero pedir tragos`;
+            if (sector === "barra3") mensaje = `Hola, mi nombre es [Escribí tu nombre acá]. Estoy en la Barra 3, quiero pedir tragos`;
+            if (sector === "barra4") mensaje = `Hola, mi nombre es [Escribí tu nombre acá]. Estoy en la Barra 4, quiero pedir tragos`;
+            if (sector === "barra5") mensaje = `Hola, mi nombre es [Escribí tu nombre acá]. Estoy en la Barra 5, quiero pedir tragos`;
 
             const link = `https://wa.me/${num}?text=${encodeURIComponent(mensaje)}`;
             const container = document.getElementById('banner-qr-canvas');
