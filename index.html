@@ -616,6 +616,7 @@
                     <option value="barra5">🍸 BARRA 5 (Mensaje: "Estoy en la Barra 5...")</option>
                 </select>
 
+                <input type="text" id="banner-empleado-nombre" class="input-lux" placeholder="Nombre del encargado (Ej: José, Jesús)">
                 <input type="number" id="banner-wa-number" class="input-lux" placeholder="WhatsApp del empleado (Ej: 5491123456789)">
                 <button class="btn" style="background: linear-gradient(135deg, #00ff94 0%, #00b8d4 100%); color: #001018; margin-bottom: 14px;" onclick="generarQRBanner()">🛠️ GENERAR QR PARA IMPRENTA</button>
 
@@ -2024,15 +2025,17 @@
         function generarQRBanner() {
             const num = (document.getElementById('banner-wa-number').value || '').trim();
             const sector = document.getElementById('banner-sector').value;
+            const empleadoNombre = (document.getElementById('banner-empleado-nombre').value || '').trim();
             
             if(!num) return showPremiumAlert("DATOS FALTANTES", "Ingresá el número de WhatsApp del empleado primero.");
+            if(!empleadoNombre) return showPremiumAlert("DATOS FALTANTES", "Ingresá el nombre del encargado (ej. Jesús, José).");
             
-            let mensaje = "Hola, quiero mi entrada";
-            if (sector === "barra1") mensaje = "Hola, estoy en la Barra 1, quiero pedir tragos";
-            if (sector === "barra2") mensaje = "Hola, estoy en la Barra 2, quiero pedir tragos";
-            if (sector === "barra3") mensaje = "Hola, estoy en la Barra 3, quiero pedir tragos";
-            if (sector === "barra4") mensaje = "Hola, estoy en la Barra 4, quiero pedir tragos";
-            if (sector === "barra5") mensaje = "Hola, estoy en la Barra 5, quiero pedir tragos";
+            let mensaje = `Hola, me llamo ${empleadoNombre}. Quiero mi entrada`;
+            if (sector === "barra1") mensaje = `Hola, me llamo ${empleadoNombre}. Estoy en la Barra 1, quiero pedir tragos`;
+            if (sector === "barra2") mensaje = `Hola, me llamo ${empleadoNombre}. Estoy en la Barra 2, quiero pedir tragos`;
+            if (sector === "barra3") mensaje = `Hola, me llamo ${empleadoNombre}. Estoy en la Barra 3, quiero pedir tragos`;
+            if (sector === "barra4") mensaje = `Hola, me llamo ${empleadoNombre}. Estoy en la Barra 4, quiero pedir tragos`;
+            if (sector === "barra5") mensaje = `Hola, me llamo ${empleadoNombre}. Estoy en la Barra 5, quiero pedir tragos`;
 
             const link = `https://wa.me/${num}?text=${encodeURIComponent(mensaje)}`;
             const container = document.getElementById('banner-qr-canvas');
