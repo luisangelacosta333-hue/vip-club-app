@@ -159,8 +159,11 @@
         
         .mini-chart { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; padding: 16px 14px; border-radius: 16px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.05); }
         .mini-bar-col { display: flex; flex-direction: column; gap: 6px; }
-        .mini-bar-label { display: flex; justify-content: space-between; align-items: center; font-size: 0.75rem; font-weight: 800; color: var(--text-gray); }
+        
+        /* ACOMODADO A LA IZQUIERDA EN COLUMNA PARA QUE NO SE CORTE NUNCA EL NÚMERO */
+        .mini-bar-label { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; font-size: 0.7rem; font-weight: 800; color: var(--text-gray); }
         .mini-bar-label b { font-size: 1.15rem; font-family: 'Orbitron', sans-serif; letter-spacing: 0.5px; }
+        
         .mini-bar-track { height: 10px; border-radius: 999px; background: rgba(255,255,255,0.05); overflow: hidden; }
         .mini-bar-fill { height: 100%; border-radius: inherit; }
         .mini-bar-fill.cyan { background: var(--grad-cyan); }
@@ -1182,13 +1185,23 @@
             const titleEl = document.getElementById('admin-header-title');
             titleEl.innerText = cUser ? `👑 ${cUser.toUpperCase()}` : '👑 PANEL DUEÑO';
 
+            if (window.vencimiento) {
+                const diasRestantes = Math.ceil((window.vencimiento - Date.now()) / (1000 * 60 * 60 * 24));
+                if (diasRestantes <= 3) {
+                    titleEl.innerHTML += ` <span style="background:var(--neon-red); color:white; padding:2px 8px; border-radius:8px; font-size:0.6rem; margin-left:10px; vertical-align: middle;">⚠️ ${diasRestantes} DÍAS</span>`;
+                } else {
+                    titleEl.innerHTML += ` <span style="background:rgba(0,240,255,0.1); border:1px solid var(--neon-cyan); color:var(--neon-cyan); padding:2px 8px; border-radius:8px; font-size:0.6rem; margin-left:10px; vertical-align: middle;">⏱️ ${diasRestantes} DÍAS</span>`;
+                }
+            }
+
             const { tabs, gEfe, gTra, gQty } = computeBoards();
             animateNumber(document.getElementById('admin-total-day'), gEfe + gTra);
             animateNumber(document.getElementById('hero-efe'), gEfe);
             animateNumber(document.getElementById('hero-tra'), gTra);
             document.getElementById('hero-qty').innerText = gQty;
             
-            let bh = sectorCardHtml('purple', '🎟️', 'BOLETERÍA', tabs['Boletería']);
+            let bh = '';
+            bh += sectorCardHtml('purple', '🎟️', 'BOLETERÍA', tabs['Boletería']);
             (dbState.barras||[]).forEach(bObj => { bh += sectorCardHtml('cyan', '🍸', bObj.nombre.toUpperCase(), tabs[bObj.nombre] || { efe:0, tra:0, qty:0, closed:false }); });
             document.getElementById('admin-boards-container').innerHTML = bh || '<div class="empty-state">Sin sectores.</div>';
             
@@ -1388,7 +1401,7 @@
 
         function abrirMisVentas() {
             let h = '', list = []; for (const l of dbState.logs) { if (l.origin !== currentBarraId) continue; if (l.type === 'CIERRE') break; if (l.type === 'VENTA') list.push(l); }
-            if (list.length) { list.forEach(l => { h += `<div class="cat-item" style="cursor:default; margin-left: 6px; margin-right: 6px;"><div style="flex:1; overflow:hidden; padding-right:12px;"><div class="text-truncate" style="font-family:'Orbitron';font-size:0.9rem;font-weight:800;color:white;letter-spacing:0.5px;text-transform:uppercase;">${l.description}</div><div style="font-size:0.75rem;color:var(--text-gray);margin-top:5px;font-weight:600;">${l.method==='TRANSFERENCIA'?'🏦':'💵'} ${l.method} · ${l.time}</div></div><div class="${currentBarraId==='Boletería'?'grad-text-purple':'grad-text-cyan'}" style="font-family:'Orbitron';font-size:1.15rem;font-weight:900;">$${fmt(l.amount)}</div></div>`; }); } 
+            if (list.length) { list.forEach(l => { h += `<div class="cat-item" style="cursor:default; margin-left: 6px; margin-right: 6px;"><div style="flex:1; overflow:hidden; padding-right:12px;"><div class="text-truncate" style="font-family:'Orbitron';font-size:0.85rem;font-weight:800;color:white;letter-spacing:0.5px;text-transform:uppercase;">${l.description}</div><div style="font-size:0.75rem;color:var(--text-gray);margin-top:5px;font-weight:600;">${l.method==='TRANSFERENCIA'?'🏦':'💵'} ${l.method} · ${l.time}</div></div><div class="${currentBarraId==='Boletería'?'grad-text-purple':'grad-text-cyan'}" style="font-family:'Orbitron';font-size:1.15rem;font-weight:900;">$${fmt(l.amount)}</div></div>`; }); } 
             else { h = `<div class="empty-state"><div class="empty-state-icon">📭</div><div style="color:var(--text-soft);font-family:'Orbitron';font-weight:800;font-size:0.9rem;letter-spacing:2px;">SIN VENTAS</div></div>`; }
             document.getElementById('mis-ventas-container').innerHTML = h; document.getElementById('modal-mis-ventas').style.display = 'flex';
         }
