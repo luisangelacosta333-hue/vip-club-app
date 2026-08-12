@@ -80,7 +80,8 @@
         .view-container.active { display: flex !important; }
         @keyframes viewIn { from { opacity: 0; transform: translateY(25px) scale(0.98); filter: blur(8px); } to { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); } }
         
-        .scroll-area { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 20px; padding-bottom: 100px; display: flex; flex-direction: column; gap: 22px; }
+        /* ACHICAMOS EL PADDING LATERAL DE 20px A 10px PARA ENSANCHAR AL BORDE */
+        .scroll-area { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 20px 10px 100px 10px; display: flex; flex-direction: column; gap: 22px; }
         .header-fixed { padding: 16px 22px; background: linear-gradient(180deg, rgba(5,5,10,0.95) 0%, rgba(5,5,10,0.75) 100%); backdrop-filter: blur(25px); border-bottom: 1px solid var(--glass-border); display: flex; justify-content: space-between; align-items: center; z-index: 100; position: sticky; top: 0; }
         
         .card { position: relative; background: var(--glass-1); backdrop-filter: blur(25px); border: 1px solid var(--glass-border); border-radius: 26px; padding: 28px 22px; box-shadow: var(--shadow-soft); overflow: hidden; }
@@ -139,9 +140,11 @@
         .admin-hero-total { font-family: 'Orbitron', sans-serif; font-size: clamp(2.4rem, 9vw, 3.6rem); font-weight: 900; line-height: 1; margin: 10px 0; background: var(--grad-gold); -webkit-background-clip: text; background-clip: text; color: transparent; }
         .admin-hero-sub { display: flex; justify-content: center; gap: 20px; margin-top: 16px; flex-wrap: wrap; }
         .admin-hero-sub div { font-size: 0.75rem; font-weight: 700; letter-spacing: 1px; color: var(--text-soft); text-transform: uppercase; }
-        .admin-hero-sub b { display: block; font-size: 1.4rem; margin-top: 4px; }
+        /* NÚMEROS MÁS GRANDES PARA EL HERO */
+        .admin-hero-sub b { display: block; font-size: 1.6rem; margin-top: 6px; font-family: 'Orbitron', sans-serif; }
         
-        .sector-card { border-radius: 24px; padding: 24px 20px; background: var(--glass-1); border: 1.5px solid var(--glass-border); margin-bottom: 16px; }
+        /* OPTIMIZACIÓN DE TARJETAS PARA GANAR ANCHO */
+        .sector-card { border-radius: 24px; padding: 22px 16px; background: var(--glass-1); border: 1.5px solid var(--glass-border); margin-bottom: 16px; }
         .sector-card.cyan { border-color: rgba(0,240,255,0.25); }
         .sector-card.purple { border-color: rgba(180,0,255,0.25); }
         .sector-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
@@ -154,9 +157,13 @@
         .status-text.closed { background: rgba(255,45,85,0.1); color: var(--neon-red); border: 1px solid rgba(255,45,85,0.3); }
         .sector-amount { font-family: 'Orbitron', sans-serif; font-size: clamp(2rem, 7vw, 2.8rem); font-weight: 900; line-height: 1; margin-bottom: 14px; }
         
-        .mini-chart { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; padding: 14px; border-radius: 16px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.05); }
+        .mini-chart { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; padding: 16px 14px; border-radius: 16px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.05); }
         .mini-bar-col { display: flex; flex-direction: column; gap: 6px; }
-        .mini-bar-label { display: flex; justify-content: space-between; font-size: 0.7rem; font-weight: 700; color: var(--text-gray); }
+        
+        /* AUMENTO DEL TAMAÑO DE LOS NÚMEROS DE EFECTIVO/TRANSFERENCIA EN LOS SECTORES */
+        .mini-bar-label { display: flex; justify-content: space-between; align-items: center; font-size: 0.75rem; font-weight: 800; color: var(--text-gray); }
+        .mini-bar-label b { font-size: 1.15rem; font-family: 'Orbitron', sans-serif; letter-spacing: 0.5px; }
+        
         .mini-bar-track { height: 10px; border-radius: 999px; background: rgba(255,255,255,0.05); overflow: hidden; }
         .mini-bar-fill { height: 100%; border-radius: inherit; }
         .mini-bar-fill.cyan { background: var(--grad-cyan); }
@@ -268,7 +275,7 @@
             </div>
         </div>
         
-        <div style="padding: 0 22px;">
+        <div style="padding: 0 12px;">
             <div style="text-align: center; padding: 10px 0 30px;">
                 <div class="logo-stage">
                     <div class="vinyl-glow"></div>
@@ -1250,24 +1257,46 @@
             document.getElementById('foto-input-camara').click();
         }
         
-        async function processTransferWithPhoto(e) {
+        function processTransferWithPhoto(e) {
             const file = e.target.files?.[0];
             if (!file) { if (confirm("⚠️ ¿Registrar transferencia SIN foto en la Nube?")) generarVentaQR('TRANSFERENCIA', null); return; }
             if (!navigator.onLine) return showPremiumAlert("SISTEMA BLOQUEADO", "Sin red.");
             
-            const h = document.getElementById('calc-hist'); if (h) h.innerText = '⏳ SUBIENDO AL TACHO...';
-            try {
-                // Sube DIRECTO a Supabase
-                const fileName = `${cUser.replace(/\s+/g, '')}/FOTO-${Date.now()}-${Math.floor(Math.random()*1000)}.jpg`;
-                const { data, error } = await _supabase.storage.from('comprobantes').upload(fileName, file);
-                if (error) throw error;
-                
-                const { data: publicUrlData } = _supabase.storage.from('comprobantes').getPublicUrl(fileName);
-                if (h) h.innerText = ''; 
-                generarVentaQR('TRANSFERENCIA', publicUrlData.publicUrl);
-            } catch(error) {
-                if (h) h.innerText = ''; showPremiumAlert("ERROR NUBE", "Fallo subiendo foto."); console.error(error);
-            }
+            const h = document.getElementById('calc-hist'); if (h) h.innerText = '⏳ COMPRIMIENDO...';
+            
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = (event) => {
+                const img = new Image();
+                img.onload = async () => {
+                    if (h) h.innerText = '⏳ SUBIENDO...';
+                    
+                    const MAX_WIDTH = 800;
+                    const scale = Math.min(1, MAX_WIDTH / img.width);
+                    const canvas = document.createElement('canvas');
+                    canvas.width = img.width * scale;
+                    canvas.height = img.height * scale;
+                    
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                    
+                    canvas.toBlob(async (blob) => {
+                        try {
+                            const fileName = `${cUser.replace(/\s+/g, '')}/FOTO-${Date.now()}-${Math.floor(Math.random()*1000)}.jpg`;
+                            const { data, error } = await _supabase.storage.from('comprobantes').upload(fileName, blob, { contentType: 'image/jpeg' });
+                            if (error) throw error;
+                            
+                            const { data: publicUrlData } = _supabase.storage.from('comprobantes').getPublicUrl(fileName);
+                            if (h) h.innerText = ''; 
+                            generarVentaQR('TRANSFERENCIA', publicUrlData.publicUrl);
+                        } catch(error) {
+                            if (h) h.innerText = ''; showPremiumAlert("ERROR NUBE", "Fallo subiendo foto."); console.error(error);
+                        }
+                    }, 'image/jpeg', 0.6); 
+                };
+                img.onerror = () => { if (h) h.innerText = ''; showPremiumAlert("ERROR", "No se procesó la foto."); };
+                img.src = event.target.result;
+            };
         }
         
         async function generarVentaQR(method = 'EFECTIVO', fotoUrl = null) {
