@@ -772,7 +772,7 @@
         <div class="modal-content" id="alerta-content"></div>
     </div>
 
-    <!-- JAVASCRIPT REESCRITO - 100% SUPABASE -->
+    <!-- JAVASCRIPT REESCRITO - 100% SUPABASE Y 100% BLINDADO -->
     <script>
         function generateUUID() {
             return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
@@ -787,7 +787,7 @@
         let syncInterval = null;
         let realtimeChannel = null;
         let cUser = "", cPin = "", cAdminPin = "", cWhatsApp = "";
-        let dbState = { logs: [], inventory: [], barras: [] }; // Chau tickets
+        let dbState = { logs: [], inventory: [], barras: [] }; 
         let expr = "", currentModule = "", currentBarraId = "";
         let selProd = null;
         let html5QrcodeScanner = null, html5QrBarra = null;
@@ -844,23 +844,44 @@
             } 
         }
 
+        // 🟢 FIX 1: MAGIA DE DESBLOQUEO LOCAL Y RECARGA TRAS EL PAGO
         async function ejecutarValidacionPaywallIA(base64str) { 
             let currentUser = cUser || (window.tempUserData ? window.tempUserData.local : null);
             if (!currentUser) return showPremiumAlert("ERROR", "Vuelve a iniciar sesión.");
             document.getElementById('ia-status').innerText = '🤖 IA verificando ticket...'; 
+            document.getElementById('ia-status').style.display = 'block';
             try { 
                 let r = await fetch('/api/validate_payment', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ local: currentUser, fotoBase64: base64str }) }); 
                 let d = await r.json(); 
                 document.getElementById('ia-status').style.display = 'none'; 
+                
                 if(d.success) { 
-                    showPremiumAlert("✅ ÉXITO TOTAL", d.msg + " Recargando...", "success"); 
+                    showPremiumAlert("✅ ÉXITO TOTAL", d.msg, "success"); 
                     document.getElementById('modal-suscripcion').style.display = 'none'; 
-                    setTimeout(() => location.reload(), 3000); 
-                } else { showPremiumAlert("❌ TICKET RECHAZADO", d.msg); } 
-            } catch(e) { showPremiumAlert("❌ ERROR DE RED", "Falló el enlace."); document.getElementById('ia-status').style.display = 'none'; } 
+                    
+                    // Actualizamos fechas locales para desbloquear la UI sin F5
+                    window.vencimiento = Date.now() + (30 * 24 * 60 * 60 * 1000);
+                    if (!cUser && window.tempUserData) {
+                        cUser = window.tempUserData.local;
+                        cPin = document.getElementById('login-pin').value || localStorage.getItem('vip_cPin');
+                    }
+                    
+                    // Descargamos de nuevo todo el inventario, ventas, etc.
+                    await fetchCloudState();
+                    go('view-roles');
+                    
+                } else { 
+                    showPremiumAlert("❌ TICKET RECHAZADO", d.msg); 
+                } 
+            } catch(e) { 
+                showPremiumAlert("❌ ERROR DE RED", "Falló el enlace."); 
+                document.getElementById('ia-status').style.display = 'none'; 
+            } 
+            isPaywallUpload = false; 
+            document.getElementById('foto-input-camara-paywall').value = ""; 
+            document.getElementById('foto-input-galeria-paywall').value = ""; 
         }
 
-        // DESCARGA TODO MENOS LOS TICKETS (CERO CONSUMO DE RAM)
         async function fetchCloudState() {
             if(!cUser || !navigator.onLine) return; 
             try {
@@ -949,7 +970,6 @@
             if(btn && !isAuto) { btn.innerText = 'CONECTANDO A SUPABASE...'; btn.disabled = true; }
             
             try {
-                // ACÁ USA LA FUNCIÓN NINJA BLINDADA
                 const { data, error } = await _supabase.rpc('login_ninja', { p_local: local, p_pin: pin }).single();
                 if (error || !data) {
                     if(!isAuto) showPremiumAlert("ACCESO DENEGADO", "Credenciales inválidas en la Nube.");
@@ -989,7 +1009,6 @@
                 document.getElementById('login-pin').value = '';
                 if(btn) { btn.innerText = 'INICIAR SESIÓN'; btn.disabled = false; }
                 
-                // AL RECARGAR O SALIR, SIEMPRE VUELVE AL MENÚ DE ROLES PARA PEDIR PIN OBLIGATORIO
                 go('view-roles'); renderAdmin();
 
             } catch (e) { 
@@ -1005,13 +1024,8 @@
             clearCalc(); go('view-caja');
         }
 
-        function openEntregas() {
-            go('view-barra-scanner');
-        }
-
-        function openPuerta() {
-            go('view-puerta');
-        }
+        function openEntregas() { go('view-barra-scanner'); }
+        function openPuerta() { go('view-puerta'); }
         
         function openModuleBarraSelect() {
             if (!dbState.barras || !dbState.barras.length) return showPremiumAlert("SIN BARRAS", "No hay barras cargadas en la Nube.");
@@ -1301,10 +1315,24 @@
             if (!selProd && currentModule !== 'Boletería') return showPremiumAlert("SIN ARTÍCULO", "Seleccioná un producto del catálogo.");
             document.getElementById('foto-input-camara').click();
         }
+
+        // 🟢 FIX 2: FUNCIÓN NINJA PARA EL TACHO DE IMÁGENES (EVITA BASE64 EN BASE DE DATOS)
+        async function uploadFotoToSupabase(blob, localPin) {
+            try {
+                const fileName = `${localPin.replace(/\s+/g, '')}/FOTO-${Date.now()}-${Math.floor(Math.random()*1000)}.jpg`;
+                const { data, error } = await _supabase.storage.from('comprobantes').upload(fileName, blob, { contentType: 'image/jpeg' });
+                if (error) return null; 
+                const { data: publicUrlData } = _supabase.storage.from('comprobantes').getPublicUrl(fileName);
+                return publicUrlData.publicUrl; 
+            } catch(e) { return null; }
+        }
         
         function processTransferWithPhoto(e) {
             const file = e.target.files?.[0];
-            if (!file) { if (confirm("⚠️ ¿Registrar transferencia SIN foto en la Nube?")) generarVentaQR('TRANSFERENCIA', null); return; }
+            if (!file) { 
+                if (confirm("⚠️ ¿Registrar transferencia SIN foto en la Nube?")) generarVentaQR('TRANSFERENCIA', null); 
+                return; 
+            }
             if (!navigator.onLine) return showPremiumAlert("SISTEMA BLOQUEADO", "Sin red.");
             
             const h = document.getElementById('calc-hist'); if (h) h.innerText = '⏳ COMPRIMIENDO...';
@@ -1314,7 +1342,7 @@
             reader.onload = (event) => {
                 const img = new Image();
                 img.onload = async () => {
-                    if (h) h.innerText = '⏳ SUBIENDO...';
+                    if (h) h.innerText = '⏳ SUBIENDO A LA NUBE...';
                     
                     const MAX_WIDTH = 800;
                     const scale = Math.min(1, MAX_WIDTH / img.width);
@@ -1326,17 +1354,9 @@
                     ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
                     
                     canvas.toBlob(async (blob) => {
-                        try {
-                            const fileName = `${cUser.replace(/\s+/g, '')}/FOTO-${Date.now()}-${Math.floor(Math.random()*1000)}.jpg`;
-                            const { data, error } = await _supabase.storage.from('comprobantes').upload(fileName, blob, { contentType: 'image/jpeg' });
-                            if (error) throw error;
-                            
-                            const { data: publicUrlData } = _supabase.storage.from('comprobantes').getPublicUrl(fileName);
-                            if (h) h.innerText = ''; 
-                            generarVentaQR('TRANSFERENCIA', publicUrlData.publicUrl);
-                        } catch(error) {
-                            if (h) h.innerText = ''; showPremiumAlert("ERROR NUBE", "Fallo subiendo foto."); console.error(error);
-                        }
+                        const finalFotoUrl = await uploadFotoToSupabase(blob, cUser);
+                        if (h) h.innerText = ''; 
+                        generarVentaQR('TRANSFERENCIA', finalFotoUrl); // Genera la venta en BD sin cargar la memoria
                     }, 'image/jpeg', 0.6); 
                 };
                 img.onerror = () => { if (h) h.innerText = ''; showPremiumAlert("ERROR", "No se procesó la foto."); };
