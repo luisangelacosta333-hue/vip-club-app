@@ -764,7 +764,7 @@
         <div class="modal-content" id="alerta-content"></div>
     </div>
 
-    <!-- JAVASCRIPT REESCRITO - 100% SUPABASE Y SIN LOCALSTORAGE -->
+    <!-- JAVASCRIPT REESCRITO - 100% SUPABASE -->
     <script>
         function generateUUID() {
             return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
@@ -776,12 +776,10 @@
         window.addEventListener('online', () => { document.getElementById('offline-banner').style.display = 'none'; });
         window.addEventListener('offline', () => { document.getElementById('offline-banner').style.display = 'block'; });
 
-        // Ya NO usamos localStorage para la base de datos.
-        // dbState es ahora 100% memoria RAM temporal, se resetea al recargar la página.
         let syncInterval = null;
         let realtimeChannel = null;
         let cUser = "", cPin = "", cAdminPin = "", cWhatsApp = "";
-        let dbState = { logs: [], tickets: [], inventory: [], barras: [] };
+        let dbState = { logs: [], inventory: [], barras: [] }; // Chau tickets
         let expr = "", currentModule = "", currentBarraId = "";
         let selProd = null;
         let html5QrcodeScanner = null, html5QrBarra = null;
@@ -848,23 +846,20 @@
             } catch(e) { showPremiumAlert("❌ ERROR DE RED", "Falló el enlace."); document.getElementById('ia-status').style.display = 'none'; } 
         }
 
-        // Nueva función principal: Extrae TODO de Supabase directamente a la RAM
+        // DESCARGA TODO MENOS LOS TICKETS (CERO CONSUMO DE RAM)
         async function fetchCloudState() {
             if(!cUser || !navigator.onLine) return; 
             try {
-                const [resBarras, resInv, resTickets, resLogs] = await Promise.all([
+                const [resBarras, resInv, resLogs] = await Promise.all([
                     _supabase.from('barras').select('*').eq('local_id', cUser),
                     _supabase.from('inventario').select('*').eq('local_id', cUser),
-                    _supabase.from('tickets').select('*').eq('local_id', cUser),
                     _supabase.from('logs').select('*').eq('local_id', cUser).order('created_at', { ascending: false }).limit(300)
                 ]);
 
                 if (resBarras.data) dbState.barras = resBarras.data.map(b => ({ nombre: b.nombre, pin: b.pin || "000" }));
                 if (resInv.data) dbState.inventory = resInv.data.map(dbItem => ({ id: dbItem.id, name: dbItem.name, price: Number(dbItem.price), stock: Number(dbItem.stock), category: dbItem.category, barId: dbItem.bar_id }));
-                if (resTickets.data) dbState.tickets = resTickets.data.map(dbTkt => ({ id: dbTkt.id, qty: Number(dbTkt.qty), product: dbTkt.product, category: dbTkt.category, amount: Number(dbTkt.amount), origin: dbTkt.origin, method: dbTkt.method, status: dbTkt.status, date: dbTkt.date, time: dbTkt.time }));
                 if (resLogs.data) {
                     dbState.logs = resLogs.data.map(dbLog => ({ id: dbLog.id, type: dbLog.type, method: dbLog.method, amount: Number(dbLog.amount), description: dbLog.description, origin: dbLog.origin, foto: dbLog.foto_base64, ticketId: dbLog.ticket_id || dbLog.ticketId, date: dbLog.date, time: dbLog.time }));
-                    dbState.logs.sort((a, b) => { return (b.date.split('/').reverse().join('') + b.time).localeCompare(a.date.split('/').reverse().join('') + a.time); });
                 }
 
                 if(document.getElementById('view-admin').classList.contains('active')) renderAdmin();
@@ -915,10 +910,6 @@
             
             try {
                 let waLimpio = waInput.replace(/\s+/g, '');
-                const { data: celData } = await _supabase.from('usuarios').select('id').eq('whatsapp', waLimpio).maybeSingle();
-                if (celData) return showPremiumAlert("ANTIPÍCARO", "WhatsApp registrado previamente.");
-                const { data: locData } = await _supabase.from('usuarios').select('id').eq('local', local).maybeSingle();
-                if (locData) return showPremiumAlert("DUPLICADO", "Boliche registrado.");
                 
                 const { error: authError } = await _supabase.auth.signUp({ email: `${waLimpio}@vipclub.com`, password: pin + "IA" });
                 if (authError) return showPremiumAlert("ERROR AUTH", authError.message);
@@ -944,7 +935,8 @@
             if(btn && !isAuto) { btn.innerText = 'CONECTANDO A SUPABASE...'; btn.disabled = true; }
             
             try {
-                const { data, error } = await _supabase.from('usuarios').select('*').eq('local', local).eq('pin', pin).maybeSingle();
+                // ACÁ USA LA FUNCIÓN NINJA BLINDADA
+                const { data, error } = await _supabase.rpc('login_ninja', { p_local: local, p_pin: pin }).single();
                 if (error || !data) {
                     if(!isAuto) showPremiumAlert("ACCESO DENEGADO", "Credenciales inválidas en la Nube.");
                     if(btn) { btn.innerText = 'INICIAR SESIÓN'; btn.disabled = false; }
@@ -964,7 +956,6 @@
                 window.vencimiento = cd ? cd.expires_at : null;
                 cUser = data.local; cPin = pin; cAdminPin = data.admin_pin || "0000"; cWhatsApp = data.whatsapp || "";
                 
-                // Carga la información directamente a la RAM desde la Nube.
                 await fetchCloudState();
 
                 localStorage.setItem('vip_cUser', cUser);
@@ -974,7 +965,6 @@
 
                 if(realtimeChannel) _supabase.removeChannel(realtimeChannel);
                 realtimeChannel = _supabase.channel('vip_realtime_' + cUser.replace(/\s+/g, ''))
-                    .on('postgres_changes', { event: '*', schema: 'public', table: 'tickets', filter: `local_id=eq.${cUser}` }, payload => fetchCloudState())
                     .on('postgres_changes', { event: '*', schema: 'public', table: 'logs', filter: `local_id=eq.${cUser}` }, payload => fetchCloudState())
                     .on('postgres_changes', { event: '*', schema: 'public', table: 'barras', filter: `local_id=eq.${cUser}` }, payload => fetchCloudState())
                     .subscribe();
@@ -1001,17 +991,14 @@
         function openModuleBarraSelect() {
             if (!dbState.barras || !dbState.barras.length) return showPremiumAlert("SIN BARRAS", "No hay barras cargadas en la Nube.");
             let h = ''; 
-            dbState.barras.forEach(bObj => { 
-                const bNombre = typeof bObj === 'object' ? bObj.nombre : bObj;
-                h += `<button class="btn btn-cyan" onclick="solicitarPinBarra('${bNombre}')">🍹 ${bNombre.toUpperCase()}</button>`; 
-            });
+            dbState.barras.forEach(bObj => { h += `<button class="btn btn-cyan" onclick="solicitarPinBarra('${bObj.nombre}')">🍹 ${bObj.nombre.toUpperCase()}</button>`; });
             document.getElementById('list-barras-cajero').innerHTML = h;
             document.getElementById('modal-select-barra').style.display = 'flex';
         }
 
         function solicitarPinBarra(nombreBarra) {
-            const bObj = dbState.barras.find(b => (typeof b === 'object' ? b.nombre : b) === nombreBarra);
-            pendingBarraObj = typeof bObj === 'object' ? bObj : { nombre: bObj, pin: "000" };
+            const bObj = dbState.barras.find(b => b.nombre === nombreBarra);
+            pendingBarraObj = bObj || { nombre: nombreBarra, pin: "000" };
             document.getElementById('modal-select-barra').style.display = 'none';
             document.getElementById('title-modal-barra-pin').innerText = `🔒 ${nombreBarra.toUpperCase()}`;
             document.getElementById('input-barra-pin').value = '';
@@ -1080,14 +1067,13 @@
         function selectBarraCarga(b) { activeBarraCarga = b; renderPillsCarga(); renderListaBebidasCarga(); }
         
         function renderPillsCarga() {
-            const primerNombre = dbState.barras[0] ? (typeof dbState.barras[0] === 'object' ? dbState.barras[0].nombre : dbState.barras[0]) : '';
+            const primerNombre = dbState.barras[0] ? dbState.barras[0].nombre : '';
             if (!activeBarraCarga && primerNombre) activeBarraCarga = primerNombre;
             let h = '';
             if (!dbState.barras?.length) h = '<div style="color:var(--text-dim);font-size:0.9rem;font-weight:600;">Sin barras creadas.</div>';
             else dbState.barras.forEach(bObj => {
-                const bNombre = typeof bObj === 'object' ? bObj.nombre : bObj;
-                const a = bNombre === activeBarraCarga ? 'active-cyan' : '';
-                h += `<div class="pill ${a}" onclick="selectBarraCarga('${bNombre}')">🍸 ${bNombre}</div>`;
+                const a = bObj.nombre === activeBarraCarga ? 'active-cyan' : '';
+                h += `<div class="pill ${a}" onclick="selectBarraCarga('${bObj.nombre}')">🍸 ${bObj.nombre}</div>`;
             });
             document.getElementById('selector-barras-carga').innerHTML = h;
         }
@@ -1138,19 +1124,16 @@
         function selectHistorialSector(s) { activeHistorialSector = s; renderPillsHistorial(); renderHistorialDueño(); }
         function renderPillsHistorial() {
             let h = `<div class="pill ${activeHistorialSector==='Boletería'?'active-purple':''}" onclick="selectHistorialSector('Boletería')">🎟️ Boletería</div>`;
-            (dbState.barras||[]).forEach(bObj => { 
-                const bNombre = typeof bObj === 'object' ? bObj.nombre : bObj;
-                h += `<div class="pill ${activeHistorialSector===bNombre?'active-cyan':''}" onclick="selectHistorialSector('${bNombre}')">🍸 ${bNombre}</div>`; 
-            });
+            (dbState.barras||[]).forEach(bObj => { h += `<div class="pill ${activeHistorialSector===bObj.nombre?'active-cyan':''}" onclick="selectHistorialSector('${bObj.nombre}')">🍸 ${bObj.nombre}</div>`; });
             document.getElementById('selector-historial-sector').innerHTML = h;
         }
         
         function computeBoards() {
             const tabs = { "Boletería": { efe: 0, tra: 0, qty: 0, closed: false } };
-            (dbState.barras||[]).forEach(bObj => { const bNombre = typeof bObj === 'object' ? bObj.nombre : bObj; tabs[bNombre] = { efe: 0, tra: 0, qty: 0, closed: false }; });
+            (dbState.barras||[]).forEach(bObj => { tabs[bObj.nombre] = { efe: 0, tra: 0, qty: 0, closed: false }; });
             let gEfe = 0, gTra = 0, gQty = 0;
             for (const l of dbState.logs) {
-                const primerBarra = dbState.barras[0] ? (typeof dbState.barras[0] === 'object' ? dbState.barras[0].nombre : dbState.barras[0]) : 'Barra 1';
+                const primerBarra = dbState.barras[0] ? dbState.barras[0].nombre : 'Barra 1';
                 const area = l.origin || (l.description?.includes('Barra') ? primerBarra : 'Boletería');
                 if (tabs[area]) {
                     if (l.type === 'CIERRE') tabs[area].closed = true;
@@ -1183,7 +1166,7 @@
             document.getElementById('hero-qty').innerText = gQty;
             
             let bh = sectorCardHtml('purple', '🎟️', 'BOLETERÍA', tabs['Boletería']);
-            (dbState.barras||[]).forEach(bObj => { const br = typeof bObj === 'object' ? bObj.nombre : bObj; bh += sectorCardHtml('cyan', '🍸', br.toUpperCase(), tabs[br] || { efe:0, tra:0, qty:0, closed:false }); });
+            (dbState.barras||[]).forEach(bObj => { bh += sectorCardHtml('cyan', '🍸', bObj.nombre.toUpperCase(), tabs[bObj.nombre] || { efe:0, tra:0, qty:0, closed:false }); });
             document.getElementById('admin-boards-container').innerHTML = bh || '<div class="empty-state">Sin sectores.</div>';
             
             renderPillsCarga(); renderPillsHistorial(); renderHistorialDueño();
@@ -1196,8 +1179,7 @@
             
             let bl = '';
             (dbState.barras||[]).forEach(bObj => {
-                const bn = typeof bObj === 'object' ? bObj.nombre : bObj; const bp = typeof bObj === 'object' ? bObj.pin : "---";
-                bl += `<div class="inv-row"><div style="flex:1;"><span style="color:white;font-family:'Orbitron';font-weight:800;font-size:0.9rem;letter-spacing:1.5px;text-transform:uppercase;">🍹 ${bn}</span><span style="display:block;font-size:0.75rem;color:var(--neon-cyan);margin-top:2px;font-weight:bold;">PIN: ${bp}</span></div><button class="btn-outline" style="padding:8px 14px;margin:0;color:var(--neon-red);border-color:rgba(255,45,85,0.3);background:rgba(255,45,85,0.05);width:auto;font-size:0.7rem;font-family:'Orbitron';letter-spacing:1.5px;" onclick="eliminarBarra('${bn}')">ELIMINAR</button></div>`;
+                bl += `<div class="inv-row"><div style="flex:1;"><span style="color:white;font-family:'Orbitron';font-weight:800;font-size:0.9rem;letter-spacing:1.5px;text-transform:uppercase;">🍹 ${bObj.nombre}</span><span style="display:block;font-size:0.75rem;color:var(--neon-cyan);margin-top:2px;font-weight:bold;">PIN: ${bObj.pin}</span></div><button class="btn-outline" style="padding:8px 14px;margin:0;color:var(--neon-red);border-color:rgba(255,45,85,0.3);background:rgba(255,45,85,0.05);width:auto;font-size:0.7rem;font-family:'Orbitron';letter-spacing:1.5px;" onclick="eliminarBarra('${bObj.nombre}')">ELIMINAR</button></div>`;
             });
             document.getElementById('list-barras').innerHTML = bl || '<div class="empty-state" style="padding:20px"><div class="empty-state-icon">🏗️</div><div style="color:var(--text-gray);font-size:0.85rem;font-weight:600;">No hay barras creadas</div></div>';
         }
@@ -1275,7 +1257,7 @@
             
             const h = document.getElementById('calc-hist'); if (h) h.innerText = '⏳ SUBIENDO AL TACHO...';
             try {
-                // Sube DIRECTO a Supabase (No se guarda en el teléfono)
+                // Sube DIRECTO a Supabase
                 const fileName = `${cUser.replace(/\s+/g, '')}/FOTO-${Date.now()}-${Math.floor(Math.random()*1000)}.jpg`;
                 const { data, error } = await _supabase.storage.from('comprobantes').upload(fileName, file);
                 if (error) throw error;
@@ -1310,15 +1292,12 @@
                 const { error: err2 } = await _supabase.from('logs').insert([{ id: logId, local_id: cUser, type: 'VENTA', method: method, amount: val, description: `${qty}x ${safeProduct}`, origin: safeOrigin, foto_base64: fotoUrl, ticket_id: tid, date: getDateStr(), time: getTimeStr() }]);
                 if(err2) throw err2;
 
+                // ACÁ LLAMAMOS A LA FUNCIÓN NINJA DEL STOCK
                 if (selProd.id !== 'GEN-ENT') {
-                    const idx = dbState.inventory.findIndex(i => i.id === selProd.id); 
-                    if (idx >= 0) { 
-                        dbState.inventory[idx].stock = Math.max(0, (dbState.inventory[idx].stock||0) - qty); 
-                        await _supabase.from('inventario').update({ stock: dbState.inventory[idx].stock }).eq('id', selProd.id);
-                    }
+                    await _supabase.rpc('restar_stock_seguro', { p_item_id: selProd.id, p_cantidad: qty });
                 }
                 
-                await fetchCloudState(); // Refresca UI internamente
+                await fetchCloudState(); // Refresca UI con los datos reales de la nube
 
                 // Generar Visual UI
                 document.getElementById('qr-amount').innerText = `$${fmt(val)} · ${method}`;
@@ -1371,18 +1350,21 @@
             if (qrClub !== cUser) { box.innerHTML = `<div class="scanner-big-icon neon-red">❌</div><h2 class="font-display neon-red" style="font-size:1.6rem;margin:15px 0;">BOLICHE INCORRECTO</h2><button class="btn btn-purple" onclick="cerrarAlerta()">VOLVER A ESCANEAR</button>`; box.style.borderColor = 'rgba(255,45,85,0.4)'; return; }
 
             try {
-                // Consulta DIRECTA a Supabase
-                const { data, error } = await _supabase.from('tickets').select('*').eq('id', ticketId).eq('local_id', cUser).single();
-                if (error || !data) { box.innerHTML = `<div class="scanner-big-icon neon-red">⛔</div><h2 class="font-display neon-red" style="font-size:1.8rem;margin:15px 0;">QR INVÁLIDO EN NUBE</h2><button class="btn btn-purple" onclick="cerrarAlerta()">VOLVER A ESCANEAR</button>`; box.style.borderColor = 'rgba(255,45,85,0.4)'; return; }
-                
-                if (data.status !== 'ACTIVO') { box.innerHTML = `<div class="scanner-big-icon neon-red">🔥</div><h2 class="font-display neon-red" style="font-size:1.6rem;margin:15px 0;">QR YA USADO</h2><button class="btn btn-purple" onclick="cerrarAlerta()">VOLVER A ESCANEAR</button>`; box.style.borderColor = 'rgba(255,45,85,0.4)'; return; }
-                if (data.category !== 'entrada') { box.innerHTML = `<div class="scanner-big-icon neon-cyan">🍸</div><h2 class="font-display neon-cyan" style="font-size:1.5rem;margin:15px 0;">NO ES ENTRADA</h2><p style="color:white;font-weight:bold;">${data.qty}x ${data.product} (Va a Barra)</p><button class="btn btn-cyan" onclick="cerrarAlerta()">VOLVER</button>`; box.style.borderColor = 'rgba(0,240,255,0.4)'; return; }
-                
-                // Actualiza Supabase DIRECTAMENTE
-                const { error: updErr } = await _supabase.from('tickets').update({ status: 'USADO' }).eq('id', data.id);
-                if(updErr) throw updErr;
+                // LLAMADA NINJA DIRECTO A SUPABASE
+                const { data, error } = await _supabase.rpc('validar_ticket_ninja', { p_ticket_id: ticketId, p_local_id: cUser, p_tipo_escaner: 'PUERTA' });
+                if (error || !data) throw error;
 
-                box.innerHTML = `<div class="scanner-big-icon neon-green">✅</div><h2 class="font-display" style="color:var(--neon-green);font-weight:900;font-size:2rem;margin:15px 0;">¡INGRESO VÁLIDO!</h2><p style="font-family:'Orbitron';color:white;font-size:1.2rem;font-weight:900;">${data.qty}x ${data.product.toUpperCase()}</p><button class="btn btn-cyan" style="margin-top:20px;" onclick="cerrarAlerta()">SIGUIENTE CLIENTE</button>`; box.style.borderColor = 'rgba(0,255,148,0.4)';
+                if (!data.success) {
+                    if (data.codigo === 'NO_EXISTE') {
+                        box.innerHTML = `<div class="scanner-big-icon neon-red">⛔</div><h2 class="font-display neon-red" style="font-size:1.8rem;margin:15px 0;">QR INVÁLIDO</h2><button class="btn btn-purple" onclick="cerrarAlerta()">VOLVER A ESCANEAR</button>`; box.style.borderColor = 'rgba(255,45,85,0.4)';
+                    } else if (data.codigo === 'USADO') {
+                        box.innerHTML = `<div class="scanner-big-icon neon-red">🔥</div><h2 class="font-display neon-red" style="font-size:1.6rem;margin:15px 0;">QR YA USADO</h2><button class="btn btn-purple" onclick="cerrarAlerta()">VOLVER A ESCANEAR</button>`; box.style.borderColor = 'rgba(255,45,85,0.4)';
+                    } else if (data.codigo === 'ES_BEBIDA') {
+                        box.innerHTML = `<div class="scanner-big-icon neon-cyan">🍸</div><h2 class="font-display neon-cyan" style="font-size:1.5rem;margin:15px 0;">NO ES ENTRADA</h2><p style="color:white;font-weight:bold;">${data.qty}x ${data.product} (Va a ${data.origin})</p><button class="btn btn-cyan" onclick="cerrarAlerta()">VOLVER</button>`; box.style.borderColor = 'rgba(0,240,255,0.4)';
+                    }
+                } else {
+                    box.innerHTML = `<div class="scanner-big-icon neon-green">✅</div><h2 class="font-display" style="color:var(--neon-green);font-weight:900;font-size:2rem;margin:15px 0;">¡INGRESO VÁLIDO!</h2><p style="font-family:'Orbitron';color:white;font-size:1.2rem;font-weight:900;">${data.qty}x ${data.product.toUpperCase()}</p><button class="btn btn-cyan" style="margin-top:20px;" onclick="cerrarAlerta()">SIGUIENTE CLIENTE</button>`; box.style.borderColor = 'rgba(0,255,148,0.4)';
+                }
             } catch(e) { box.innerHTML = `<div class="scanner-big-icon neon-red">❌</div><h2 class="font-display neon-red" style="font-size:1.6rem;">ERROR NUBE</h2><button class="btn btn-purple" onclick="cerrarAlerta()">VOLVER</button>`; }
         }
 
@@ -1395,7 +1377,7 @@
             box.innerHTML = `<div style="padding:40px 0;text-align:center;"><div class="scanner-big-icon neon-cyan">⏳</div><h2 class="font-display neon-cyan" style="font-size:1.5rem;margin-top:10px;">CONSULTANDO NUBE...</h2></div>`;
             box.style.borderColor = 'rgba(0,240,255,0.4)';
             document.getElementById('modal-alerta').style.display = 'flex';
-            if (!navigator.onLine) { box.innerHTML = `<div class="scanner-big-icon neon-red">❌</div><h2 class="font-display neon-red" style="font-size:1.6rem;margin:15px 0;">SISTEMA BLOQUEADO</h2><p>Internet requerido para validar QRs.</p><button class="btn btn-purple" onclick="cerrarAlertaBarra()">VOLVER</button>`; return; }
+            if (!navigator.onLine) { box.innerHTML = `<div class="scanner-big-icon neon-red">❌</div><h2 class="font-display neon-red" style="font-size:1.6rem;margin:15px 0;">SISTEMA BLOQUEADO</h2><button class="btn btn-purple" onclick="cerrarAlertaBarra()">VOLVER</button>`; return; }
 
             let qrText = raw.trim(); let ticketId = qrText; let qrClub = cUser;
             if (qrText.startsWith('VIPCLUB:')) { const parts = qrText.split(':'); if(parts.length === 3) { qrClub = parts[1]; ticketId = parts[2]; } else ticketId = parts[1]; }
@@ -1403,28 +1385,31 @@
             if (qrClub !== cUser) { box.innerHTML = `<div class="scanner-big-icon neon-red">❌</div><h2 class="font-display neon-red" style="font-size:1.6rem;margin:15px 0;">BOLICHE INCORRECTO</h2><button class="btn btn-purple" onclick="cerrarAlertaBarra()">VOLVER A ESCANEAR</button>`; box.style.borderColor = 'rgba(255,45,85,0.4)'; return; }
 
             try {
-                // Consulta DIRECTA a Supabase
-                const { data, error } = await _supabase.from('tickets').select('*').eq('id', ticketId).eq('local_id', cUser).single();
-                if (error || !data) { box.innerHTML = `<div class="scanner-big-icon neon-red">⛔</div><h2 class="font-display neon-red" style="font-size:1.8rem;">CÓDIGO INVÁLIDO</h2><button class="btn btn-purple" onclick="cerrarAlertaBarra()">VOLVER A ESCANEAR</button>`; box.style.borderColor = 'rgba(255,45,85,0.4)'; return; }
-                
-                if (data.status !== 'ACTIVO') { box.innerHTML = `<div class="scanner-big-icon neon-red">🔥</div><h2 class="font-display neon-red" style="font-size:1.6rem;">¡QR YA QUEMADO!</h2><button class="btn btn-purple" onclick="cerrarAlertaBarra()">VOLVER A ESCANEAR</button>`; box.style.borderColor = 'rgba(255,45,85,0.4)'; return; }
-                if (data.category === 'entrada') { box.innerHTML = `<div class="scanner-big-icon neon-purple">🎟️</div><h2 class="font-display neon-purple" style="font-size:1.6rem;">ES UNA ENTRADA</h2><p>Este QR es de puerta.</p><button class="btn btn-purple" onclick="cerrarAlertaBarra()">VOLVER A ESCANEAR</button>`; box.style.borderColor = 'rgba(180,0,255,0.4)'; return; }
-                
-                // Actualiza Supabase DIRECTAMENTE
-                const { error: updErr } = await _supabase.from('tickets').update({ status: 'ENTREGADO' }).eq('id', data.id);
-                if(updErr) throw updErr;
+                // LLAMADA NINJA DIRECTO A SUPABASE
+                const { data, error } = await _supabase.rpc('validar_ticket_ninja', { p_ticket_id: ticketId, p_local_id: cUser, p_tipo_escaner: 'BARRA' });
+                if (error || !data) throw error;
 
-                try { const voz = new SpeechSynthesisUtterance(); voz.text = `ENTREGAR: ${data.qty} ${data.product.toUpperCase()}`; voz.lang = 'es-AR'; window.speechSynthesis.cancel(); window.speechSynthesis.speak(voz); } catch(e){}
-                box.innerHTML = `
-                    <div class="scanner-big-icon neon-green">✅</div>
-                    <h2 class="font-display" style="color:var(--neon-green);">¡CÓDIGO VÁLIDO!</h2>
-                    <div class="entregar-box">
-                        <div class="entregar-label">🔥 DESPACHAR AHORA:</div>
-                        <div class="entregar-producto">${data.product}</div>
-                        <div class="entregar-cantidad">${data.qty} UNIDADES</div>
-                    </div>
-                    <button class="btn btn-cyan" style="margin-top:20px;" onclick="cerrarAlertaBarra()">SIGUIENTE CLIENTE</button>
-                `; box.style.borderColor = 'rgba(0,255,148,0.4)';
+                if (!data.success) {
+                    if (data.codigo === 'NO_EXISTE') {
+                        box.innerHTML = `<div class="scanner-big-icon neon-red">⛔</div><h2 class="font-display neon-red" style="font-size:1.8rem;">CÓDIGO INVÁLIDO</h2><button class="btn btn-purple" onclick="cerrarAlertaBarra()">VOLVER A ESCANEAR</button>`; box.style.borderColor = 'rgba(255,45,85,0.4)';
+                    } else if (data.codigo === 'USADO') {
+                        box.innerHTML = `<div class="scanner-big-icon neon-red">🔥</div><h2 class="font-display neon-red" style="font-size:1.6rem;">¡QR YA QUEMADO!</h2><button class="btn btn-purple" onclick="cerrarAlertaBarra()">VOLVER A ESCANEAR</button>`; box.style.borderColor = 'rgba(255,45,85,0.4)';
+                    } else if (data.codigo === 'ES_ENTRADA') {
+                        box.innerHTML = `<div class="scanner-big-icon neon-purple">🎟️</div><h2 class="font-display neon-purple" style="font-size:1.6rem;">ES UNA ENTRADA</h2><p>Este QR es de puerta.</p><button class="btn btn-purple" onclick="cerrarAlertaBarra()">VOLVER A ESCANEAR</button>`; box.style.borderColor = 'rgba(180,0,255,0.4)';
+                    }
+                } else {
+                    try { const voz = new SpeechSynthesisUtterance(); voz.text = `ENTREGAR: ${data.qty} ${data.product.toUpperCase()}`; voz.lang = 'es-AR'; window.speechSynthesis.cancel(); window.speechSynthesis.speak(voz); } catch(e){}
+                    box.innerHTML = `
+                        <div class="scanner-big-icon neon-green">✅</div>
+                        <h2 class="font-display" style="color:var(--neon-green);">¡CÓDIGO VÁLIDO!</h2>
+                        <div class="entregar-box">
+                            <div class="entregar-label">🔥 DESPACHAR AHORA:</div>
+                            <div class="entregar-producto">${data.product}</div>
+                            <div class="entregar-cantidad">${data.qty} UNIDADES</div>
+                        </div>
+                        <button class="btn btn-cyan" style="margin-top:20px;" onclick="cerrarAlertaBarra()">SIGUIENTE CLIENTE</button>
+                    `; box.style.borderColor = 'rgba(0,255,148,0.4)';
+                }
             } catch(e) { box.innerHTML = `<div class="scanner-big-icon neon-red">❌</div><h2 class="font-display neon-red" style="font-size:1.6rem;">ERROR NUBE</h2><button class="btn btn-purple" onclick="cerrarAlertaBarra()">VOLVER</button>`; }
         }
         
@@ -1441,7 +1426,7 @@
             } catch (err) { const b = document.getElementById('qr-buttons'); if (b) b.style.display = 'block'; }
         }
 
-        function generarQRBanner() { /* Sin cambios, solo genera visual local para imprimir */
+        function generarQRBanner() { 
             const num = (document.getElementById('banner-wa-number').value || '').trim(); const sector = document.getElementById('banner-sector').value;
             if(!num) return showPremiumAlert("DATOS", "Ingresá el WhatsApp.");
             let mensaje = `Hola, mi nombre es [Escribí tu nombre acá]. Quiero mi entrada`;
@@ -1451,7 +1436,7 @@
             new QRCode(container, { text: link, width: 512, height: 512, colorDark: '#000000', colorLight: '#ffffff', correctLevel: QRCode.CorrectLevel.H });
             document.getElementById('banner-qr-box').style.display = 'block';
         }
-        async function descargarQRBanner() { /* Sin cambios */
+        async function descargarQRBanner() { 
             const wrapper = document.getElementById('banner-qr-wrapper'); if(!wrapper) return;
             try { const canvas = await html2canvas(wrapper, { backgroundColor: '#ffffff', scale: 2 }); const dataUrl = canvas.toDataURL('image/png'); const a = document.createElement('a'); a.href = dataUrl; a.download = `Banner-${Date.now()}.png`; a.click(); } catch(e){}
         }
