@@ -1009,7 +1009,7 @@
                     .subscribe();
 
                 if(syncInterval) clearInterval(syncInterval);
-                syncInterval = setInterval(fetchCloudState, 10000); 
+                // syncInterval = setInterval(fetchCloudState, 10000); // 🟢 FIX: Desactivado para soportar miles de clientes sin saturar Supabase
 
                 document.getElementById('login-pin').value = '';
                 if(btn) { btn.innerText = 'INICIAR SESIÓN'; btn.disabled = false; }
