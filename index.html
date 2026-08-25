@@ -189,29 +189,33 @@
         .input-group-row { display: flex; gap: 12px; width: 100%; }
         
         #view-caja { padding: 0 !important; background: transparent; height: 100dvh; overflow: hidden; display: flex; flex-direction: column; box-sizing: border-box; }
-        .top-bar-caja { display: flex; justify-content: space-between; padding: 16px 22px; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.06); background: rgba(5,5,10,0.95); backdrop-filter: blur(25px); flex-shrink: 0; }
+        
+        /* 🔥 SOLUCIÓN DEFINITIVA: EL ENCABEZADO AHORA CONTIENE LOS BOTONES ADENTRO, PROTEGIDOS Y AISLADOS */
+        .top-bar-caja { display: flex; flex-direction: column; gap: 14px; padding: 16px 22px; border-bottom: 1px solid rgba(255,255,255,0.06); background: rgba(5,5,10,0.95); backdrop-filter: blur(25px); flex-shrink: 0; }
+        .top-bar-header { display: flex; justify-content: space-between; align-items: center; }
+        
+        /* Los botones VENTAS y CORTE ahora están alojados de forma segura a la izquierda */
+        .cashier-actions { display: flex; justify-content: flex-start; gap: 12px; }
+        
         .indicator-pill { font-family: 'Orbitron', sans-serif; font-size: 0.75rem; font-weight: 900; padding: 8px 16px; border-radius: 999px; text-transform: uppercase; }
         .indicator-pill.cyan { background: rgba(0,240,255,0.08); border: 1.5px solid rgba(0,240,255,0.3); color: var(--neon-cyan); }
         .indicator-pill.purple { background: rgba(180,0,255,0.08); border: 1.5px solid rgba(180,0,255,0.3); color: var(--neon-purple); }
         
-        /* 🔥 SOLUCIÓN DEFINITIVA: BOTONES MOVIDOS ARRIBA Y A LA IZQUIERDA PARA NUNCA ESTORBAR */
-        .cashier-actions { display: flex; justify-content: flex-start; padding: 16px 24px 0; gap: 10px; flex-wrap: wrap; flex-shrink: 0; }
-        
-        /* 🔥 SOLUCIÓN DEFINITIVA: CAJA DE NÚMEROS LIMPIA Y EXCLUSIVA ABAJO */
-        .calc-display-wrapper { flex: 1; display: flex; flex-direction: column; justify-content: flex-end; padding: 10px 24px 20px; min-height: 0; }
+        /* 🔥 LA CAJA DE NÚMEROS AHORA TIENE TODO EL ESPACIO LIBRE, SIN PELIGRO DE PISAR BOTONES */
+        .calc-display-wrapper { flex: 1; display: flex; flex-direction: column; justify-content: flex-end; padding: 10px 24px 25px; min-height: 0; }
         .calc-hist { font-family: 'Orbitron', sans-serif; font-size: 1.3rem; color: var(--text-dim); text-align: right; min-height: 30px; font-weight: 700; letter-spacing: 2px; margin-bottom: 5px; }
         
-        /* 🔥 SOLUCIÓN DEL NÚMERO RECORTADO Y TAMAÑO AMPLIADO (1mm más grande) */
+        /* 🔥 NÚMERO PURO BLANCO, Y UN MILÍMETRO MÁS GRANDE */
         .calc-display { 
             font-family: 'Orbitron', sans-serif; 
-            font-size: clamp(3.2rem, 14vw, 5.5rem); /* <-- Agrandado ligeramente para sumar ese 1mm visual */
+            font-size: clamp(3.5rem, 15vw, 6rem); 
             font-weight: 900; 
             text-align: right; 
-            line-height: 1; 
+            line-height: 1.1; 
             color: #ffffff; 
             white-space: nowrap; 
-            overflow: visible; /* <-- Evita que se ampute la cabeza de los números */
-            letter-spacing: -1px; 
+            overflow: visible; 
+            letter-spacing: -2px; 
             padding-top: 5px; 
             padding-bottom: 5px; 
         }
@@ -482,18 +486,20 @@
 
     <!-- CAJA -->
     <div id="view-caja" class="view-container">
+        
+        <!-- 🔥 SOLUCIÓN DEFINITIVA: EL ENCABEZADO AHORA CONTIENE LOS BOTONES ADENTRO, PROTEGIDOS Y AISLADOS -->
         <div class="top-bar-caja">
-            <span id="active-bar-indicator" class="indicator-pill cyan"></span>
-            <span onclick="volverRoles()" style="color: var(--text-soft); cursor: pointer; font-family: 'Orbitron', sans-serif; font-weight: 800; font-size: 0.7rem; padding: 8px 14px; border: 1.5px solid rgba(255,255,255,0.1); border-radius: 999px; background: rgba(255,255,255,0.04); letter-spacing: 1.5px;">SALIR</span>
+            <div class="top-bar-header">
+                <span id="active-bar-indicator" class="indicator-pill cyan"></span>
+                <span onclick="volverRoles()" style="color: var(--text-soft); cursor: pointer; font-family: 'Orbitron', sans-serif; font-weight: 800; font-size: 0.7rem; padding: 8px 14px; border: 1.5px solid rgba(255,255,255,0.1); border-radius: 999px; background: rgba(255,255,255,0.04); letter-spacing: 1.5px;">SALIR</span>
+            </div>
+            <div class="cashier-actions">
+                <button class="btn-small-pill" onclick="abrirMisVentas()">🧾 VENTAS</button>
+                <button class="btn-small-pill" style="color: var(--neon-cyan); border-color: rgba(0,240,255,0.35); background: rgba(0,240,255,0.06);" onclick="closeRegister()">🔒 CORTE</button>
+            </div>
         </div>
         
-        <!-- 🔥 SOLUCIÓN DEFINITIVA: BOTONES ARRIBA A LA IZQUIERDA PARA NUNCA PISARSE -->
-        <div class="cashier-actions">
-            <button class="btn-small-pill" onclick="abrirMisVentas()">🧾 VENTAS</button>
-            <button class="btn-small-pill" style="color: var(--neon-cyan); border-color: rgba(0,240,255,0.35); background: rgba(0,240,255,0.06);" onclick="closeRegister()">🔒 CORTE</button>
-        </div>
-        
-        <!-- CAJA DE NÚMEROS LIMPIA ABAJO DE LOS BOTONES -->
+        <!-- 🔥 LA CAJA DE NÚMEROS AHORA TIENE TODO EL ESPACIO LIBRE, SIN PELIGRO DE PISAR BOTONES -->
         <div class="calc-display-wrapper">
             <div id="calc-hist" class="calc-hist"></div>
             <div id="calc-total" class="calc-display">0</div>
@@ -1358,7 +1364,7 @@
         }
         
         // 🔥 MEJORA JS: Lógica impecable y en vivo.
-        function updateCalcDisplay() { const d = document.getElementById('calc-total'); if(d){ const len = d.innerText.replace(/[^0-9]/g,'').length; d.style.fontSize = len>8 ? '2.5rem' : len>5 ? '3.5rem' : 'clamp(3.2rem, 14vw, 5.5rem)'; } }
+        function updateCalcDisplay() { const d = document.getElementById('calc-total'); if(d){ const len = d.innerText.replace(/[^0-9]/g,'').length; d.style.fontSize = len>8 ? '2.8rem' : len>5 ? '3.8rem' : 'clamp(3.5rem, 15vw, 6rem)'; } }
         
         function inputCalc(v) { 
             expr += v; 
@@ -1409,70 +1415,6 @@
                 const { data, error } = await _supabase.storage.from('comprobantes').upload(fileName, blob, { contentType: 'image/jpeg' });
                 if (error) return null; 
                 const { data: publicUrlData } = _supabase.storage.from('comprobantes').getPublicUrl(fileName);
-                return publicUrlData.publicUrl; 
-            } catch(e) { return null; }
-        }
-        
-        function processTransferWithPhoto(e) {
-            const file = e.target.files?.[0];
-            if (!file) { 
-                if (confirm("⚠️ ¿Registrar transferencia SIN foto en la Nube?")) generarVentaQR('TRANSFERENCIA', null); 
-                return; 
-            }
-            if (!navigator.onLine) return showPremiumAlert("SISTEMA BLOQUEADO", "Sin red.");
-            
-            const h = document.getElementById('calc-hist'); if (h) h.innerText = '⏳ COMPRIMIENDO...';
-            
-            const reader = new FileReader();
-            reader.readAsDataURL(file);
-            reader.onload = (event) => {
-                const img = new Image();
-                img.onload = async () => {
-                    if (h) h.innerText = '⏳ SUBIENDO A LA NUBE...';
-                    
-                    const MAX_WIDTH = 800;
-                    const scale = Math.min(1, MAX_WIDTH / img.width);
-                    const canvas = document.createElement('canvas');
-                    canvas.width = img.width * scale;
-                    canvas.height = img.height * scale;
-                    
-                    const ctx = canvas.getContext('2d');
-                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-                    
-                    canvas.toBlob(async (blob) => {
-                        const finalFotoUrl = await uploadFotoToSupabase(blob, cUser);
-                        if (h) h.innerText = ''; 
-                        generarVentaQR('TRANSFERENCIA', finalFotoUrl);
-                    }, 'image/jpeg', 0.6); 
-                };
-                img.onerror = () => { if (h) h.innerText = ''; showPremiumAlert("ERROR", "No se procesó la foto."); };
-                img.src = event.target.result;
-            };
-        }
-        
-        async function generarVentaQR(method = 'EFECTIVO', fotoUrl = null) {
-            if (!navigator.onLine) return showPremiumAlert("SISTEMA BLOQUEADO", "No hay internet.");
-            const val = parseFloat((document.getElementById('calc-total').innerText||'0').replace(/\./g,'').replace(',','.'));
-            if (!val || val <= 0) return showPremiumAlert("MONTO INVÁLIDO", "Ingresá un monto.");
-            if (!selProd) { if (currentModule === 'Boletería') selProd = { id: 'GEN-ENT', name: 'ENTRADA GENERAL', category: 'entrada' }; else return showPremiumAlert("SIN ARTÍCULO", "Seleccioná uno."); }
-            
-            let qty = 1; if (expr.includes('*')) { const ps = expr.split('*'); const n = parseFloat(ps[ps.length - 1]); if (!isNaN(n) && n > 0) qty = n; }
-            const tid = generateUUID(); const logId = generateUUID(); 
-            
-            // 🔥 FIX LÓGICO: Dejamos el acento intacto al guardar en la base de datos para que no se pierdan las ventas
-            const safeOrigin = currentBarraId; 
-            const safeProduct = selProd.name; 
-            const qrPayload = "VIPCLUB:" + cUser + ":" + tid;
-
-            const qc = document.getElementById('qr-container'); const mq = document.getElementById('modal-qr');
-            if (mq) mq.style.display = 'flex';
-            if (qc) { qc.innerHTML = `<div style="padding:30px; text-align:center;"><div style="font-size:3rem; animation: ledPulse 1s infinite;">⏳</div><div style="font-family:'Orbitron'; color:var(--neon-cyan); margin-top:15px; font-weight:bold; letter-spacing:2px; font-size: 0.8rem;">AUTORIZANDO EN NUBE...</div></div>`; }
-
-            try {
-                const { error: err1 } = await _supabase.from('tickets').insert([{ id: tid, local_id: cUser, qty: qty, product: safeProduct, category: selProd.category, amount: val, origin: safeOrigin, method: method, status: 'ACTIVO', date: getDateStr(), time: getTimeStr() }]);
-                if(err1) throw err1;
-
-                const { error: err2 } = await _supabase.from('logs').insert([{ id: logId, local_id: cUser, type: 'VENTA', method: method, amount: val, description: `${qty}x ${safeProduct}`, origin: safeOrigin, foto_base64: fotoUrl, ticket_id: tid, date: getDateStr(), time: getTimeStr() publicUrlData } = _supabase.storage.from('comprobantes').getPublicUrl(fileName);
                 return publicUrlData.publicUrl; 
             } catch(e) { return null; }
         }
