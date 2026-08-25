@@ -1472,7 +1472,9 @@
                 if(err2) throw err2;
 
                 if (selProd.id !== 'GEN-ENT') {
-                    await _supabase.rpc('restar_stock_seguro', { p_item_id: selProd.id, p_cantidad: qty });
+                    const stockActualizado = Math.max(0, selProd.stock - qty);
+                    await _supabase.from('inventario').update({ stock: stockActualizado }).eq('id', selProd.id);
+                    selProd.stock = stockActualizado;
                 }
                 
                 await fetchCloudState();
