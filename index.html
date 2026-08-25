@@ -188,36 +188,38 @@
         .text-truncate { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%; }
         .input-group-row { display: flex; gap: 12px; width: 100%; }
         
-        #view-caja { padding: 0 !important; background: transparent; height: 100dvh; overflow: hidden; display: flex; flex-direction: column; box-sizing: border-box; }
+        /* 🔥 SOLUCIÓN DEFINITIVA: SCROLL Y AISLAMIENTO DE LA CAJA */
+        #view-caja { padding: 0 !important; background: transparent; height: 100dvh; display: flex; flex-direction: column; box-sizing: border-box; overflow-y: auto; overflow-x: hidden; }
         
-        /* 🔥 SOLUCIÓN DEFINITIVA: EL ENCABEZADO AHORA CONTIENE LOS BOTONES ADENTRO, PROTEGIDOS Y AISLADOS */
-        .top-bar-caja { display: flex; flex-direction: column; gap: 14px; padding: 16px 22px; border-bottom: 1px solid rgba(255,255,255,0.06); background: rgba(5,5,10,0.95); backdrop-filter: blur(25px); flex-shrink: 0; }
+        .top-bar-caja { display: flex; flex-direction: column; gap: 12px; padding: 16px 22px; border-bottom: 1px solid rgba(255,255,255,0.06); background: rgba(5,5,10,0.95); backdrop-filter: blur(25px); flex-shrink: 0; }
         .top-bar-header { display: flex; justify-content: space-between; align-items: center; }
         
-        /* Los botones VENTAS y CORTE ahora están alojados de forma segura a la izquierda */
+        /* 🔥 BOTONES PROTEGIDOS ARRIBA Y A LA IZQUIERDA */
         .cashier-actions { display: flex; justify-content: flex-start; gap: 12px; }
         
         .indicator-pill { font-family: 'Orbitron', sans-serif; font-size: 0.75rem; font-weight: 900; padding: 8px 16px; border-radius: 999px; text-transform: uppercase; }
         .indicator-pill.cyan { background: rgba(0,240,255,0.08); border: 1.5px solid rgba(0,240,255,0.3); color: var(--neon-cyan); }
         .indicator-pill.purple { background: rgba(180,0,255,0.08); border: 1.5px solid rgba(180,0,255,0.3); color: var(--neon-purple); }
         
-        /* 🔥 LA CAJA DE NÚMEROS AHORA TIENE TODO EL ESPACIO LIBRE, SIN PELIGRO DE PISAR BOTONES */
-        .calc-display-wrapper { flex: 1; display: flex; flex-direction: column; justify-content: flex-end; padding: 10px 24px 25px; min-height: 0; }
+        /* 🔥 EL NÚMERO TIENE SU PROPIO ESPACIO LIBRE Y NUNCA SE APLASTA */
+        .calc-display-wrapper { flex: 1 1 auto; display: flex; flex-direction: column; justify-content: flex-end; padding: 10px 24px 20px; min-height: 90px; }
         .calc-hist { font-family: 'Orbitron', sans-serif; font-size: 1.3rem; color: var(--text-dim); text-align: right; min-height: 30px; font-weight: 700; letter-spacing: 2px; margin-bottom: 5px; }
         
-        /* 🔥 NÚMERO PURO BLANCO, Y UN MILÍMETRO MÁS GRANDE */
+        /* 🔥 BLANCO PURO, SIN CORTES (OVERFLOW HIDDEN Y LETTER-SPACING 0) */
         .calc-display { 
             font-family: 'Orbitron', sans-serif; 
-            font-size: clamp(3.5rem, 15vw, 6rem); 
+            font-size: clamp(3rem, 14vw, 5.5rem); 
             font-weight: 900; 
             text-align: right; 
-            line-height: 1.1; 
+            line-height: 1; 
             color: #ffffff; 
             white-space: nowrap; 
-            overflow: visible; 
-            letter-spacing: -2px; 
+            overflow: hidden; 
+            text-overflow: ellipsis;
+            letter-spacing: 0; 
             padding-top: 5px; 
             padding-bottom: 5px; 
+            width: 100%;
         }
         
         .btn-small-pill { background: rgba(255,255,255,0.04); border: 1.5px solid rgba(255,255,255,0.08); color: var(--text-soft); padding: 10px 16px; border-radius: 999px; font-family: 'Orbitron', sans-serif; font-weight: 700; font-size: 0.75rem; cursor: pointer; text-transform: uppercase; }
