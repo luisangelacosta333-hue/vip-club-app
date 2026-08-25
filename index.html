@@ -194,14 +194,14 @@
         .top-bar-caja { display: flex; justify-content: space-between; padding: 16px 22px; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.06); background: rgba(5,5,10,0.95); backdrop-filter: blur(25px); flex-shrink: 0; }
         
         /* 🔥 LOS BOTONES AHORA ESTÁN ARRIBA, SEPARADOS DEL NÚMERO */
-        .cashier-actions { display: flex; justify-content: flex-start; padding: 16px 24px 0; gap: 10px; flex-shrink: 0; }
+        .cashier-actions { display: flex; justify-content: flex-start; padding: 10px 24px 0; gap: 10px; flex-shrink: 0; }
         
         .indicator-pill { font-family: 'Orbitron', sans-serif; font-size: 0.75rem; font-weight: 900; padding: 8px 16px; border-radius: 999px; text-transform: uppercase; }
         .indicator-pill.cyan { background: rgba(0,240,255,0.08); border: 1.5px solid rgba(0,240,255,0.3); color: var(--neon-cyan); }
         .indicator-pill.purple { background: rgba(180,0,255,0.08); border: 1.5px solid rgba(180,0,255,0.3); color: var(--neon-purple); }
         
         /* 🔥 CAJA DEL NÚMERO EXCLUSIVA, CON ESPACIO SEGURO Y OVERFLOW HIDDEN PARA NO PISAR NADA */
-        .calc-display-wrapper { flex: 1 1 auto; display: flex; flex-direction: column; justify-content: center; padding: 5px 24px 10px; min-height: 90px; }
+        .calc-display-wrapper { flex: 1 1 auto; display: flex; flex-direction: column; justify-content: center; padding: 2px 24px 6px; min-height: 70px; }
         
         .calc-hist { font-family: 'Orbitron', sans-serif; font-size: 1.2rem; color: var(--text-dim); text-align: right; min-height: 25px; font-weight: 700; letter-spacing: 2px; margin-bottom: 2px; }
         
@@ -223,8 +223,9 @@
         .btn-small-pill { background: rgba(255,255,255,0.04); border: 1.5px solid rgba(255,255,255,0.08); color: var(--text-soft); padding: 10px 16px; border-radius: 999px; font-family: 'Orbitron', sans-serif; font-weight: 700; font-size: 0.75rem; cursor: pointer; text-transform: uppercase; }
         .btn-small-pill:active { background: rgba(0,240,255,0.08); border-color: var(--neon-cyan); color: var(--neon-cyan); }
         
-        .product-selected-area { padding: 0 16px 12px; flex-shrink: 0; }
-        .btn-select-catalog { width: 100%; background: rgba(255,255,255,0.02); border: 2px dashed rgba(255,255,255,0.12); color: var(--text-white); padding: 22px; border-radius: 16px; font-family: 'Orbitron', sans-serif; font-size: 1rem; font-weight: 800; cursor: pointer; text-transform: uppercase; }
+        /* 🔥 ÁREA DE PRODUCTO ACHICADA PARA AHORRAR ESPACIO */
+        .product-selected-area { padding: 0 16px 8px; flex-shrink: 0; }
+        .btn-select-catalog { width: 100%; background: rgba(255,255,255,0.02); border: 2px dashed rgba(255,255,255,0.12); color: var(--text-white); padding: 12px; border-radius: 16px; font-family: 'Orbitron', sans-serif; font-size: 0.9rem; font-weight: 800; cursor: pointer; text-transform: uppercase; }
         
         /* Teclado elástico para no romper el alto de la pantalla */
         .keypad-wrapper { background: linear-gradient(180deg, rgba(12,12,24,0.95), rgba(5,5,10,0.98)); border-top: 1px solid rgba(255,255,255,0.06); border-top-left-radius: 36px; border-top-right-radius: 36px; padding: 16px 16px 20px; box-shadow: 0 -20px 60px rgba(0,0,0,0.6); backdrop-filter: blur(30px); position: relative; flex-shrink: 0; }
@@ -920,7 +921,6 @@
                 if (resBarras.data) dbState.barras = resBarras.data.map(b => ({ nombre: b.nombre, pin: b.pin || "000" }));
                 if (resInv.data) dbState.inventory = resInv.data.map(dbItem => ({ id: dbItem.id, name: dbItem.name, price: Number(dbItem.price), stock: Number(dbItem.stock), category: dbItem.category, barId: dbItem.bar_id }));
                 
-                // 🔥 FIX LÓGICO: Trampa para que las ventas viejas de "Boleteria" se conviertan automáticamente a "Boletería"
                 if (resLogs.data) {
                     dbState.logs = resLogs.data.map(dbLog => ({ 
                         id: dbLog.id, type: dbLog.type, method: dbLog.method, amount: Number(dbLog.amount), 
@@ -1320,7 +1320,7 @@
             document.getElementById('admin-history-container').innerHTML = h;
         }
         
-        // 🔥 MEJORA VISUAL: Lista del catálogo gigante y blanca
+        // 🔥 MEJORA VISUAL: Lista del catálogo
         function openCatalogModal() {
             const tipo = currentModule === 'Boletería' ? 'entrada' : 'bebida'; const tit = document.getElementById('catalog-title');
             if (tit) { tit.innerText = tipo === 'entrada' ? '🎟️ ENTRADAS' : `🍸 ${currentBarraId.toUpperCase()}`; tit.className = 'font-display ' + (tipo === 'entrada' ? 'neon-purple' : 'neon-cyan'); }
@@ -1345,23 +1345,22 @@
         
         function closeCatalogModal() { document.getElementById('catalog-modal').style.display = 'none'; }
         
-        // 🔥 MEJORA VISUAL: Cartel del artículo gigante y blanco en la caja
+        // 🔥 MEJORA VISUAL Y DE ESPACIO: Cartel del artículo adaptado
         function selectProduct(id) {
             const p = dbState.inventory.find(i => i.id === id); if (!p) return; selProd = p;
             document.getElementById('caja-product-area').innerHTML = `
-                <div style="display:flex;justify-content:space-between;align-items:center;background:rgba(255,255,255,0.05);border:2px solid rgba(0,240,255,0.4);border-radius:24px;padding:22px 24px;box-shadow:0 10px 30px rgba(0,0,0,0.5);">
+                <div style="display:flex;justify-content:space-between;align-items:center;background:rgba(255,255,255,0.05);border:2px solid rgba(0,240,255,0.4);border-radius:16px;padding:10px 16px;box-shadow:0 4px 15px rgba(0,0,0,0.5);">
                     <div style="flex:1; overflow:hidden; padding-right:10px;">
-                        <div class="text-truncate" style="font-family:'Orbitron';color:white;font-weight:900;font-size:1.4rem;letter-spacing:1px;text-transform:uppercase;">${p.category==='entrada'?'🎟️':'🍸'} ${p.name}</div>
-                        <div style="color:#00ff94;font-weight:800;font-size:0.85rem;margin-top:8px;letter-spacing:2px;text-transform:uppercase;">✓ ARTÍCULO SELECCIONADO</div>
+                        <div class="text-truncate" style="font-family:'Orbitron';color:white;font-weight:900;font-size:1.1rem;letter-spacing:1px;text-transform:uppercase;">${p.category==='entrada'?'🎟️':'🍸'} ${p.name}</div>
+                        <div style="color:#00ff94;font-weight:800;font-size:0.7rem;margin-top:4px;letter-spacing:1px;text-transform:uppercase;">✓ SELECCIONADO</div>
                     </div>
-                    <div style="display:flex;flex-direction:column;align-items:flex-end;gap:12px;">
-                        <button class="btn-small-pill" style="padding:10px 18px;font-size:0.85rem;border-color:rgba(255,45,85,0.4);color:#ff2d55;background:rgba(255,45,85,0.1);font-weight:900;" onclick="clearCalc()">CANCELAR</button>
+                    <div style="display:flex;flex-direction:column;align-items:flex-end;gap:8px;">
+                        <button class="btn-small-pill" style="padding:6px 12px;font-size:0.75rem;border-color:rgba(255,45,85,0.4);color:#ff2d55;background:rgba(255,45,85,0.1);font-weight:900;" onclick="clearCalc()">CANCELAR</button>
                     </div>
                 </div>`;
             closeCatalogModal(); expr = ''; inputCalc(p.price.toString()); inputCalc('*');
         }
         
-        // 🔥 MEJORA JS: Lógica impecable y en vivo.
         function updateCalcDisplay() { const d = document.getElementById('calc-total'); if(d){ const len = d.innerText.replace(/[^0-9]/g,'').length; d.style.fontSize = len>8 ? '2.5rem' : len>5 ? '3.5rem' : 'clamp(3.2rem, 14vw, 5.2rem)'; } }
         
         function inputCalc(v) { 
@@ -1510,7 +1509,6 @@
             } catch(e) { showPremiumAlert("ERROR", "No se guardó el cierre en nube"); }
         }
 
-        // 🔥 MEJORA VISUAL: Lista de "Mis Ventas" en blanco puro y números gigantes
         function abrirMisVentas() {
             let h = '', list = []; for (const l of dbState.logs) { if (l.origin !== currentBarraId) continue; if (l.type === 'CIERRE') break; if (l.type === 'VENTA') list.push(l); }
             if (list.length) { 
