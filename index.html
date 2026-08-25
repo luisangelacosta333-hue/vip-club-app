@@ -188,37 +188,38 @@
         .text-truncate { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%; }
         .input-group-row { display: flex; gap: 12px; width: 100%; }
         
-        #view-caja { padding: 0 !important; background: transparent; }
-        .top-bar-caja { display: flex; justify-content: space-between; padding: 16px 22px; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.06); background: rgba(5,5,10,0.95); backdrop-filter: blur(25px); }
+        /* 🔥 MEJORA VISUAL Y LÓGICA: Calculadora FIJA sin scroll */
+        #view-caja { padding: 0 !important; background: transparent; height: 100dvh; overflow: hidden; display: flex; flex-direction: column; box-sizing: border-box; }
+        .top-bar-caja { display: flex; justify-content: space-between; padding: 16px 22px; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.06); background: rgba(5,5,10,0.95); backdrop-filter: blur(25px); flex-shrink: 0; }
         .indicator-pill { font-family: 'Orbitron', sans-serif; font-size: 0.75rem; font-weight: 900; padding: 8px 16px; border-radius: 999px; text-transform: uppercase; }
         .indicator-pill.cyan { background: rgba(0,240,255,0.08); border: 1.5px solid rgba(0,240,255,0.3); color: var(--neon-cyan); }
         .indicator-pill.purple { background: rgba(180,0,255,0.08); border: 1.5px solid rgba(180,0,255,0.3); color: var(--neon-purple); }
         
-        /* 🔥 MEJORA VISUAL: Calculadora con números enormes */
-        .calc-display-wrapper { flex: 1; display: flex; flex-direction: column; justify-content: center; padding: 10px 28px 20px; min-height: 180px; }
+        .calc-display-wrapper { flex: 1; display: flex; flex-direction: column; justify-content: center; padding: 10px 24px; min-height: 0; }
         .calc-hist { font-family: 'Orbitron', sans-serif; font-size: 1.3rem; color: var(--text-dim); text-align: right; min-height: 30px; font-weight: 700; letter-spacing: 2px; }
-        .calc-display { font-family: 'Orbitron', sans-serif; font-size: clamp(3rem, 15vw, 6rem); font-weight: 900; text-align: right; line-height: 1; background: linear-gradient(135deg, #ffffff 0%, #b0b0ff 100%); -webkit-background-clip: text; background-clip: text; color: transparent; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; letter-spacing: -1px; }
+        /* Reduje un poco el número principal para que no expanda y genere scroll */
+        .calc-display { font-family: 'Orbitron', sans-serif; font-size: clamp(2.5rem, 12vw, 4.5rem); font-weight: 900; text-align: right; line-height: 1; background: linear-gradient(135deg, #ffffff 0%, #b0b0ff 100%); -webkit-background-clip: text; background-clip: text; color: transparent; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; letter-spacing: -1px; }
         
-        .cashier-actions { display: flex; justify-content: flex-end; padding: 0 22px 12px; gap: 10px; flex-wrap: wrap; }
-        .btn-small-pill { background: rgba(255,255,255,0.04); border: 1.5px solid rgba(255,255,255,0.08); color: var(--text-soft); padding: 10px 16px; border-radius: 999px; font-family: 'Orbitron', sans-serif; font-weight: 700; font-size: 0.7rem; cursor: pointer; text-transform: uppercase; }
+        .cashier-actions { display: flex; justify-content: flex-end; padding: 0 20px 10px; gap: 10px; flex-wrap: wrap; flex-shrink: 0; }
+        .btn-small-pill { background: rgba(255,255,255,0.04); border: 1.5px solid rgba(255,255,255,0.08); color: var(--text-soft); padding: 10px 16px; border-radius: 999px; font-family: 'Orbitron', sans-serif; font-weight: 700; font-size: 0.75rem; cursor: pointer; text-transform: uppercase; }
         .btn-small-pill:active { background: rgba(0,240,255,0.08); border-color: var(--neon-cyan); color: var(--neon-cyan); }
         
-        .product-selected-area { padding: 0 22px 14px; }
-        .btn-select-catalog { width: 100%; background: rgba(255,255,255,0.02); border: 2px dashed rgba(255,255,255,0.12); color: var(--text-gray); padding: 18px; border-radius: 16px; font-family: 'Orbitron', sans-serif; font-size: 0.85rem; font-weight: 800; cursor: pointer; text-transform: uppercase; }
+        .product-selected-area { padding: 0 16px 12px; flex-shrink: 0; }
+        .btn-select-catalog { width: 100%; background: rgba(255,255,255,0.02); border: 2px dashed rgba(255,255,255,0.12); color: var(--text-white); padding: 22px; border-radius: 16px; font-family: 'Orbitron', sans-serif; font-size: 1rem; font-weight: 800; cursor: pointer; text-transform: uppercase; }
         
-        /* 🔥 MEJORA VISUAL: Teclas más altas y legibles */
-        .keypad-wrapper { background: linear-gradient(180deg, rgba(12,12,24,0.95), rgba(5,5,10,0.98)); border-top: 1px solid rgba(255,255,255,0.06); border-top-left-radius: 36px; border-top-right-radius: 36px; padding: 24px 20px 30px; box-shadow: 0 -20px 60px rgba(0,0,0,0.6); backdrop-filter: blur(30px); position: relative; }
-        .keypad-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-top: 14px; }
-        .key-lux { background: linear-gradient(145deg, rgba(40,40,70,0.6), rgba(20,20,40,0.7)); border: 1px solid rgba(255,255,255,0.08); border-radius: 20px; height: 75px; display: flex; align-items: center; justify-content: center; font-family: 'Orbitron', sans-serif; font-size: 2.2rem; font-weight: 800; color: white; cursor: pointer; box-shadow: 0 6px 16px rgba(0,0,0,0.4); }
+        /* Teclado elástico para no romper el alto de la pantalla */
+        .keypad-wrapper { background: linear-gradient(180deg, rgba(12,12,24,0.95), rgba(5,5,10,0.98)); border-top: 1px solid rgba(255,255,255,0.06); border-top-left-radius: 36px; border-top-right-radius: 36px; padding: 16px 16px 20px; box-shadow: 0 -20px 60px rgba(0,0,0,0.6); backdrop-filter: blur(30px); position: relative; flex-shrink: 0; }
+        .keypad-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 10px; }
+        .key-lux { background: linear-gradient(145deg, rgba(40,40,70,0.6), rgba(20,20,40,0.7)); border: 1px solid rgba(255,255,255,0.08); border-radius: 20px; height: clamp(45px, 7.5vh, 65px); display: flex; align-items: center; justify-content: center; font-family: 'Orbitron', sans-serif; font-size: 1.8rem; font-weight: 800; color: white; cursor: pointer; box-shadow: 0 6px 16px rgba(0,0,0,0.4); }
         .key-lux:active { transform: scale(0.92); }
-        .key-action { color: var(--neon-cyan); font-size: 2.2rem; }
+        .key-action { color: var(--neon-cyan); font-size: 2rem; }
         .key-clear { color: var(--neon-red); background: rgba(255,45,85,0.12); border-color: rgba(255,45,85,0.25); font-weight: 900; }
         .key-zero { grid-column: span 2; }
         
-        .btn-cobrar-efe { background: var(--grad-purple); color: white; font-family: 'Orbitron', sans-serif; font-weight: 900; border: none; display: flex; flex-direction: column; gap: 4px; grid-column: span 2; height: auto; border-radius: 20px; }
-        .btn-cobrar-efe .k-icon { font-size: 1.6rem; }
-        .btn-cobrar-efe .k-text { font-size: 0.85rem; letter-spacing: 1.5px; text-transform: uppercase; }
-        .btn-cobrar-tra { background: var(--grad-cyan); color: #001018; font-family: 'Orbitron', sans-serif; font-weight: 900; border: none; display: flex; justify-content: center; align-items: center; gap: 10px; grid-column: span 4; height: 68px; margin-top: 6px; border-radius: 20px; }
+        .btn-cobrar-efe { background: var(--grad-purple); color: white; font-family: 'Orbitron', sans-serif; font-weight: 900; border: none; display: flex; flex-direction: column; gap: 2px; grid-column: span 2; height: auto; border-radius: 20px; }
+        .btn-cobrar-efe .k-icon { font-size: 1.5rem; }
+        .btn-cobrar-efe .k-text { font-size: 0.75rem; letter-spacing: 1.5px; text-transform: uppercase; }
+        .btn-cobrar-tra { background: var(--grad-cyan); color: #001018; font-family: 'Orbitron', sans-serif; font-weight: 900; border: none; display: flex; justify-content: center; align-items: center; gap: 10px; grid-column: span 4; height: clamp(50px, 8vh, 68px); margin-top: 4px; border-radius: 20px; }
         .btn-cobrar-tra .k-icon { font-size: 1.6rem; }
         .btn-cobrar-tra .k-text { font-size: 0.95rem; letter-spacing: 1.5px; text-transform: uppercase; }
         
@@ -568,7 +569,6 @@
                 <div class="admin-hero-label">⟡ Recaudación Total del Día ⟡</div>
                 <div id="admin-total-day" class="admin-hero-total">$0</div>
                 <div class="admin-hero-sub">
-                    <!-- 🔥 CHAU COLORINCHE: Subtotales elegantes en blanco -->
                     <div>💵 Efectivo <b id="hero-efe" style="color: white; font-size: 1.5rem; text-shadow: 0 0 12px rgba(255,255,255,0.2);">$0</b></div>
                     <div>🏦 Transferencia <b id="hero-tra" style="color: white; font-size: 1.5rem; text-shadow: 0 0 12px rgba(255,255,255,0.2);">$0</b></div>
                     <div>🎫 Ventas <b id="hero-qty" style="color: white; font-size: 1.5rem; text-shadow: 0 0 12px rgba(255,255,255,0.2);">0</b></div>
@@ -861,7 +861,6 @@
                     
                     const nuevoVencimiento = Date.now() + (30 * 24 * 60 * 60 * 1000);
 
-                    // Orden persistente en la base de datos Supabase
                     await _supabase.from('usuarios').update({
                         app_data: { sub_status: 'PREMIUM', expires_at: nuevoVencimiento }
                     }).eq('local', currentUser);
@@ -898,8 +897,15 @@
 
                 if (resBarras.data) dbState.barras = resBarras.data.map(b => ({ nombre: b.nombre, pin: b.pin || "000" }));
                 if (resInv.data) dbState.inventory = resInv.data.map(dbItem => ({ id: dbItem.id, name: dbItem.name, price: Number(dbItem.price), stock: Number(dbItem.stock), category: dbItem.category, barId: dbItem.bar_id }));
+                
+                // 🔥 FIX LÓGICO: Trampa para que las ventas viejas de "Boleteria" se conviertan automáticamente a "Boletería"
                 if (resLogs.data) {
-                    dbState.logs = resLogs.data.map(dbLog => ({ id: dbLog.id, type: dbLog.type, method: dbLog.method, amount: Number(dbLog.amount), description: dbLog.description, origin: dbLog.origin, foto: dbLog.foto_base64, ticketId: dbLog.ticket_id || dbLog.ticketId, date: dbLog.date, time: dbLog.time }));
+                    dbState.logs = resLogs.data.map(dbLog => ({ 
+                        id: dbLog.id, type: dbLog.type, method: dbLog.method, amount: Number(dbLog.amount), 
+                        description: dbLog.description, 
+                        origin: dbLog.origin === 'Boleteria' ? 'Boletería' : dbLog.origin, 
+                        foto: dbLog.foto_base64, ticketId: dbLog.ticket_id || dbLog.ticketId, date: dbLog.date, time: dbLog.time 
+                    }));
                 }
 
                 if(document.getElementById('view-admin').classList.contains('active')) renderAdmin();
@@ -1009,9 +1015,6 @@
                     .subscribe();
 
                 if(syncInterval) clearInterval(syncInterval);
-                
-                // 🔥 FIX DE SINCRONIZACIÓN: Vuelve a activarse el reloj de soporte
-                // Esto garantiza que los dueños vean las ventas si el Realtime nativo falla
                 syncInterval = setInterval(fetchCloudState, 8000); 
 
                 document.getElementById('login-pin').value = '';
@@ -1295,7 +1298,7 @@
             document.getElementById('admin-history-container').innerHTML = h;
         }
         
-        // 🔥 MEJORA VISUAL: Lista del catálogo de la calculadora gigante y espaciosa
+        // 🔥 MEJORA VISUAL: Lista del catálogo gigante y blanca
         function openCatalogModal() {
             const tipo = currentModule === 'Boletería' ? 'entrada' : 'bebida'; const tit = document.getElementById('catalog-title');
             if (tit) { tit.innerText = tipo === 'entrada' ? '🎟️ ENTRADAS' : `🍸 ${currentBarraId.toUpperCase()}`; tit.className = 'font-display ' + (tipo === 'entrada' ? 'neon-purple' : 'neon-cyan'); }
@@ -1303,43 +1306,42 @@
             let h = '';
             if (items.length) { 
                 items.forEach(i => { 
-                    h += `<div class="cat-item" onclick="selectProduct('${i.id}')" style="padding: 20px 16px; border-radius: 22px;">
+                    h += `<div class="cat-item" onclick="selectProduct('${i.id}')" style="padding: 22px 18px; border-radius: 22px; margin-bottom: 10px; background: var(--glass-1); border: 1.5px solid rgba(255,255,255,0.1);">
                             <div style="flex:1; overflow:hidden; padding-right:12px;">
-                                <div class="text-truncate" style="font-family:'Orbitron';font-size:1.1rem;font-weight:900;color:white;letter-spacing:1px;text-transform:uppercase;">${i.name}</div>
-                                <div class="${i.category==='entrada'?'grad-text-purple':'grad-text-cyan'}" style="font-family:'Orbitron';font-size:1.5rem;font-weight:900;margin-top:8px;">$${fmt(i.price)}</div>
+                                <div class="text-truncate" style="font-family:'Orbitron';font-size:1.3rem;font-weight:900;color:white;letter-spacing:1px;text-transform:uppercase;">${i.name}</div>
+                                <div style="font-family:'Orbitron';font-size:1.6rem;font-weight:900;margin-top:8px;color:white;">$${fmt(i.price)}</div>
                             </div>
-                            <div class="inv-stock-box" style="padding: 10px 18px;">
-                                <span style="font-size: 0.7rem;">STOCK</span>
-                                <b style="font-size: 1.3rem;">${i.stock}</b>
+                            <div class="inv-stock-box" style="padding: 12px 20px; background: rgba(0,0,0,0.6);">
+                                <span style="font-size: 0.75rem; color: white;">STOCK</span>
+                                <b style="font-size: 1.5rem; color: white;">${i.stock}</b>
                             </div>
                           </div>`; 
                 }); 
-            } else {
-                h = `<div class="empty-state"><div class="empty-state-icon">⚠️</div><div style="color:var(--neon-cyan);font-weight:800;font-size:0.9rem;line-height:1.5;">Catálogo vacío en Nube.</div></div>`;
-            }
+            } else h = `<div class="empty-state"><div class="empty-state-icon">⚠️</div><div style="color:var(--neon-cyan);font-weight:800;font-size:0.9rem;line-height:1.5;">Catálogo vacío en Nube.</div></div>`;
             document.getElementById('catalog-list-container').innerHTML = h; document.getElementById('catalog-modal').style.display = 'flex';
         }
         
         function closeCatalogModal() { document.getElementById('catalog-modal').style.display = 'none'; }
         
-        // 🔥 MEJORA VISUAL: Cartel del artículo seleccionado en la calculadora grande y llamativo
+        // 🔥 MEJORA VISUAL: Cartel del artículo gigante y blanco en la caja
         function selectProduct(id) {
             const p = dbState.inventory.find(i => i.id === id); if (!p) return; selProd = p;
             document.getElementById('caja-product-area').innerHTML = `
-                <div style="display:flex;justify-content:space-between;align-items:center;background:linear-gradient(135deg,rgba(0,240,255,0.06),rgba(180,0,255,0.04));border:1.5px solid rgba(0,240,255,0.25);border-radius:22px;padding:20px 22px;box-shadow:0 10px 30px rgba(0,0,0,0.35);">
+                <div style="display:flex;justify-content:space-between;align-items:center;background:rgba(255,255,255,0.05);border:2px solid rgba(0,240,255,0.4);border-radius:24px;padding:22px 24px;box-shadow:0 10px 30px rgba(0,0,0,0.5);">
                     <div style="flex:1; overflow:hidden; padding-right:10px;">
-                        <div class="text-truncate" style="font-family:'Orbitron';color:white;font-weight:900;font-size:1.2rem;letter-spacing:1px;text-transform:uppercase;">${p.category==='entrada'?'🎟️':'🍸'} ${p.name}</div>
-                        <div style="color:var(--neon-green);font-weight:800;font-size:0.8rem;margin-top:6px;letter-spacing:2px;text-transform:uppercase;">✓ ARTÍCULO SELECCIONADO</div>
+                        <div class="text-truncate" style="font-family:'Orbitron';color:white;font-weight:900;font-size:1.4rem;letter-spacing:1px;text-transform:uppercase;">${p.category==='entrada'?'🎟️':'🍸'} ${p.name}</div>
+                        <div style="color:#00ff94;font-weight:800;font-size:0.85rem;margin-top:8px;letter-spacing:2px;text-transform:uppercase;">✓ ARTÍCULO SELECCIONADO</div>
                     </div>
-                    <div style="display:flex;flex-direction:column;align-items:flex-end;gap:10px;">
-                        <span class="${p.category==='entrada'?'grad-text-purple':'grad-text-cyan'}" style="font-family:'Orbitron';font-weight:900;font-size:1.8rem; letter-spacing: 1px;">$${fmt(p.price)}</span>
-                        <button class="btn-small-pill" style="padding:8px 16px;font-size:0.75rem;border-color:rgba(255,45,85,0.3);color:var(--neon-red);background:rgba(255,45,85,0.06);" onclick="clearCalc()">CANCELAR</button>
+                    <div style="display:flex;flex-direction:column;align-items:flex-end;gap:12px;">
+                        <span style="font-family:'Orbitron';font-weight:900;font-size:2.2rem; letter-spacing: 1px; color: white;">$${fmt(p.price)}</span>
+                        <button class="btn-small-pill" style="padding:10px 18px;font-size:0.85rem;border-color:rgba(255,45,85,0.4);color:#ff2d55;background:rgba(255,45,85,0.1);font-weight:900;" onclick="clearCalc()">CANCELAR</button>
                     </div>
                 </div>`;
             closeCatalogModal(); expr = ''; inputCalc(p.price.toString()); inputCalc('*');
         }
         
-        function updateCalcDisplay() { const d = document.getElementById('calc-total'); if(d){ const len = d.innerText.replace(/[^0-9]/g,'').length; d.style.fontSize = len>8 ? '3rem' : len>5 ? '4.5rem' : 'clamp(3.5rem, 15vw, 6rem)'; } }
+        // 🔥 MEJORA VISUAL: Ajuste del tamaño del texto de la calculadora
+        function updateCalcDisplay() { const d = document.getElementById('calc-total'); if(d){ const len = d.innerText.replace(/[^0-9]/g,'').length; d.style.fontSize = len>8 ? '2.5rem' : len>5 ? '3.5rem' : 'clamp(3rem, 12vw, 4.5rem)'; } }
         function inputCalc(v) { expr += v; const h=document.getElementById('calc-hist'), t=document.getElementById('calc-total'); if(h) h.innerText=expr.replace(/\*/g,' × '); try{if(t) t.innerText=fmt(eval(expr)||0);}catch(e){} updateCalcDisplay(); }
         function deleteCalc() { expr = expr.slice(0, -1); const h=document.getElementById('calc-hist'), t=document.getElementById('calc-total'); if(h) h.innerText=expr.replace(/\*/g,' × '); try{if(t) t.innerText=expr?fmt(eval(expr)||0):'0';}catch(e){} updateCalcDisplay(); }
         function clearCalc() { expr = ''; selProd = null; document.getElementById('calc-hist').innerText = ''; document.getElementById('calc-total').innerText = '0'; document.getElementById('caja-product-area').innerHTML = `<button class="btn-select-catalog" onclick="openCatalogModal()">🛒 SELECCIONAR ARTÍCULO</button>`; updateCalcDisplay(); }
@@ -1406,7 +1408,11 @@
             if (!selProd) { if (currentModule === 'Boletería') selProd = { id: 'GEN-ENT', name: 'ENTRADA GENERAL', category: 'entrada' }; else return showPremiumAlert("SIN ARTÍCULO", "Seleccioná uno."); }
             
             let qty = 1; if (expr.includes('*')) { const ps = expr.split('*'); const n = parseFloat(ps[ps.length - 1]); if (!isNaN(n) && n > 0) qty = n; }
-            const tid = generateUUID(); const logId = generateUUID(); const safeOrigin = currentBarraId.normalize("NFD").replace(/[\u0300-\u036f]/g, ""); const safeProduct = selProd.name; 
+            const tid = generateUUID(); const logId = generateUUID(); 
+            
+            // 🔥 FIX LÓGICO: Dejamos el acento intacto al guardar en la base de datos para que no se pierdan las ventas
+            const safeOrigin = currentBarraId; 
+            const safeProduct = selProd.name; 
             const qrPayload = "VIPCLUB:" + cUser + ":" + tid;
 
             const qc = document.getElementById('qr-container'); const mq = document.getElementById('modal-qr');
@@ -1451,10 +1457,22 @@
             } catch(e) { showPremiumAlert("ERROR", "No se guardó el cierre en nube"); }
         }
 
+        // 🔥 MEJORA VISUAL: Lista de "Mis Ventas" en blanco puro y números gigantes
         function abrirMisVentas() {
             let h = '', list = []; for (const l of dbState.logs) { if (l.origin !== currentBarraId) continue; if (l.type === 'CIERRE') break; if (l.type === 'VENTA') list.push(l); }
-            if (list.length) { list.forEach(l => { h += `<div class="cat-item" style="cursor:default; margin-left: 6px; margin-right: 6px;"><div style="flex:1; overflow:hidden; padding-right:12px;"><div class="text-truncate" style="font-family:'Orbitron';font-size:1rem;font-weight:900;color:white;letter-spacing:1px;text-transform:uppercase;">${l.description}</div><div style="font-size:0.75rem;color:var(--text-gray);margin-top:5px;font-weight:600;">${l.method==='TRANSFERENCIA'?'🏦':'💵'} ${l.method} · ${l.time}</div></div><div class="${currentBarraId==='Boletería'?'grad-text-purple':'grad-text-cyan'}" style="font-family:'Orbitron';font-size:1.3rem;font-weight:900;">$${fmt(l.amount)}</div></div>`; }); } 
-            else { h = `<div class="empty-state"><div class="empty-state-icon">📭</div><div style="color:var(--text-soft);font-family:'Orbitron';font-weight:800;font-size:0.9rem;letter-spacing:2px;">SIN VENTAS</div></div>`; }
+            if (list.length) { 
+                list.forEach(l => { 
+                    h += `<div class="cat-item" style="cursor:default; margin-left: 6px; margin-right: 6px; padding: 18px 16px; border-radius: 20px;">
+                            <div style="flex:1; overflow:hidden; padding-right:12px;">
+                                <div class="text-truncate" style="font-family:'Orbitron';font-size:1.15rem;font-weight:900;color:white;letter-spacing:1px;text-transform:uppercase;">${l.description}</div>
+                                <div style="font-size:0.85rem;color:#ffffff;margin-top:6px;font-weight:600;opacity:0.9;">${l.method==='TRANSFERENCIA'?'🏦':'💵'} ${l.method} · ${l.time}</div>
+                            </div>
+                            <div style="font-family:'Orbitron';font-size:1.4rem;font-weight:900;color:white;">$${fmt(l.amount)}</div>
+                          </div>`; 
+                }); 
+            } else { 
+                h = `<div class="empty-state"><div class="empty-state-icon">📭</div><div style="color:var(--text-soft);font-family:'Orbitron';font-weight:800;font-size:0.9rem;letter-spacing:2px;">SIN VENTAS</div></div>`; 
+            }
             document.getElementById('mis-ventas-container').innerHTML = h; document.getElementById('modal-mis-ventas').style.display = 'flex';
         }
 
