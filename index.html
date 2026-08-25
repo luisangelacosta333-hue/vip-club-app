@@ -844,7 +844,7 @@
             } 
         }
 
-        // 🟢 FIX 1: MAGIA DE DESBLOQUEO LOCAL Y RECARGA TRAS EL PAGO
+        // 🟢 FIX CORREGIDO: SE PERSISTE EN SUPABASE LOS 30 DÍAS TRAS EL PAGO
         async function ejecutarValidacionPaywallIA(base64str) { 
             let currentUser = cUser || (window.tempUserData ? window.tempUserData.local : null);
             if (!currentUser) return showPremiumAlert("ERROR", "Vuelve a iniciar sesión.");
@@ -859,14 +859,19 @@
                     showPremiumAlert("✅ ÉXITO TOTAL", d.msg, "success"); 
                     document.getElementById('modal-suscripcion').style.display = 'none'; 
                     
-                    // Actualizamos fechas locales para desbloquear la UI sin F5
-                    window.vencimiento = Date.now() + (30 * 24 * 60 * 60 * 1000);
+                    const nuevoVencimiento = Date.now() + (30 * 24 * 60 * 60 * 1000);
+
+                    // Orden persistente en la base de datos Supabase
+                    await _supabase.from('usuarios').update({
+                        app_data: { sub_status: 'PREMIUM', expires_at: nuevoVencimiento }
+                    }).eq('local', currentUser);
+
+                    window.vencimiento = nuevoVencimiento;
                     if (!cUser && window.tempUserData) {
                         cUser = window.tempUserData.local;
                         cPin = document.getElementById('login-pin').value || localStorage.getItem('vip_cPin');
                     }
                     
-                    // Descargamos de nuevo todo el inventario, ventas, etc.
                     await fetchCloudState();
                     go('view-roles');
                     
@@ -1199,12 +1204,13 @@
             const titleEl = document.getElementById('admin-header-title');
             titleEl.innerText = cUser ? `👑 ${cUser.toUpperCase()}` : '👑 PANEL DUEÑO';
 
+            // 🟢 FIX CORREGIDO: Se añadió white-space: nowrap y display: inline-block para que no se corte nunca el número de días
             if (window.vencimiento) {
                 const diasRestantes = Math.ceil((window.vencimiento - Date.now()) / (1000 * 60 * 60 * 24));
                 if (diasRestantes <= 3) {
-                    titleEl.innerHTML += ` <span style="background:var(--neon-red); color:white; padding:2px 8px; border-radius:8px; font-size:0.6rem; margin-left:10px; vertical-align: middle;">⚠️ ${diasRestantes} DÍAS</span>`;
+                    titleEl.innerHTML += ` <span style="white-space: nowrap; display: inline-block; background:var(--neon-red); color:white; padding:2px 8px; border-radius:8px; font-size:0.6rem; margin-left:10px; vertical-align: middle;">⚠️ ${diasRestantes} DÍAS</span>`;
                 } else {
-                    titleEl.innerHTML += ` <span style="background:rgba(0,240,255,0.1); border:1px solid var(--neon-cyan); color:var(--neon-cyan); padding:2px 8px; border-radius:8px; font-size:0.6rem; margin-left:10px; vertical-align: middle;">⏱️ ${diasRestantes} DÍAS</span>`;
+                    titleEl.innerHTML += ` <span style="white-space: nowrap; display: inline-block; background:rgba(0,240,255,0.1); border:1px solid var(--neon-cyan); color:var(--neon-cyan); padding:2px 8px; border-radius:8px; font-size:0.6rem; margin-left:10px; vertical-align: middle;">⏱️ ${diasRestantes} DÍAS</span>`;
                 }
             }
 
@@ -1316,7 +1322,6 @@
             document.getElementById('foto-input-camara').click();
         }
 
-        // 🟢 FIX 2: FUNCIÓN NINJA PARA EL TACHO DE IMÁGENES (EVITA BASE64 EN BASE DE DATOS)
         async function uploadFotoToSupabase(blob, localPin) {
             try {
                 const fileName = `${localPin.replace(/\s+/g, '')}/FOTO-${Date.now()}-${Math.floor(Math.random()*1000)}.jpg`;
@@ -1356,7 +1361,7 @@
                     canvas.toBlob(async (blob) => {
                         const finalFotoUrl = await uploadFotoToSupabase(blob, cUser);
                         if (h) h.innerText = ''; 
-                        generarVentaQR('TRANSFERENCIA', finalFotoUrl); // Genera la venta en BD sin cargar la memoria
+                        generarVentaQR('TRANSFERENCIA', finalFotoUrl);
                     }, 'image/jpeg', 0.6); 
                 };
                 img.onerror = () => { if (h) h.innerText = ''; showPremiumAlert("ERROR", "No se procesó la foto."); };
@@ -1379,21 +1384,18 @@
             if (qc) { qc.innerHTML = `<div style="padding:30px; text-align:center;"><div style="font-size:3rem; animation: ledPulse 1s infinite;">⏳</div><div style="font-family:'Orbitron'; color:var(--neon-cyan); margin-top:15px; font-weight:bold; letter-spacing:2px; font-size: 0.8rem;">AUTORIZANDO EN NUBE...</div></div>`; }
 
             try {
-                // INSERT DIRECTO A SUPABASE 
                 const { error: err1 } = await _supabase.from('tickets').insert([{ id: tid, local_id: cUser, qty: qty, product: safeProduct, category: selProd.category, amount: val, origin: safeOrigin, method: method, status: 'ACTIVO', date: getDateStr(), time: getTimeStr() }]);
                 if(err1) throw err1;
 
                 const { error: err2 } = await _supabase.from('logs').insert([{ id: logId, local_id: cUser, type: 'VENTA', method: method, amount: val, description: `${qty}x ${safeProduct}`, origin: safeOrigin, foto_base64: fotoUrl, ticket_id: tid, date: getDateStr(), time: getTimeStr() }]);
                 if(err2) throw err2;
 
-                // ACÁ LLAMAMOS A LA FUNCIÓN NINJA DEL STOCK
                 if (selProd.id !== 'GEN-ENT') {
                     await _supabase.rpc('restar_stock_seguro', { p_item_id: selProd.id, p_cantidad: qty });
                 }
                 
-                await fetchCloudState(); // Refresca UI con los datos reales de la nube
+                await fetchCloudState();
 
-                // Generar Visual UI
                 document.getElementById('qr-amount').innerText = `$${fmt(val)} · ${method}`;
                 document.getElementById('qr-product-info').innerText = `${qty}x ${safeProduct.toUpperCase()} · ${currentBarraId.toUpperCase()}`;
                 if (qc) { qc.innerHTML = ''; new QRCode(qc, { text: qrPayload, width: 250, height: 250, colorDark: '#ff0080', colorLight: '#ffffff', correctLevel: QRCode.CorrectLevel.M }); }
@@ -1444,7 +1446,6 @@
             if (qrClub !== cUser) { box.innerHTML = `<div class="scanner-big-icon neon-red">❌</div><h2 class="font-display neon-red" style="font-size:1.6rem;margin:15px 0;">BOLICHE INCORRECTO</h2><button class="btn btn-purple" onclick="cerrarAlerta()">VOLVER A ESCANEAR</button>`; box.style.borderColor = 'rgba(255,45,85,0.4)'; return; }
 
             try {
-                // LLAMADA NINJA DIRECTO A SUPABASE
                 const { data, error } = await _supabase.rpc('validar_ticket_ninja', { p_ticket_id: ticketId, p_local_id: cUser, p_tipo_escaner: 'PUERTA' });
                 if (error || !data) throw error;
 
@@ -1479,7 +1480,6 @@
             if (qrClub !== cUser) { box.innerHTML = `<div class="scanner-big-icon neon-red">❌</div><h2 class="font-display neon-red" style="font-size:1.6rem;margin:15px 0;">BOLICHE INCORRECTO</h2><button class="btn btn-purple" onclick="cerrarAlertaBarra()">VOLVER A ESCANEAR</button>`; box.style.borderColor = 'rgba(255,45,85,0.4)'; return; }
 
             try {
-                // LLAMADA NINJA DIRECTO A SUPABASE
                 const { data, error } = await _supabase.rpc('validar_ticket_ninja', { p_ticket_id: ticketId, p_local_id: cUser, p_tipo_escaner: 'BARRA' });
                 if (error || !data) throw error;
 
@@ -1543,4 +1543,3 @@
     </script>
 </body>
 </html>
-
