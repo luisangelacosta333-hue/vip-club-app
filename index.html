@@ -193,59 +193,57 @@
         
         .top-bar-caja { display: flex; justify-content: space-between; padding: 16px 22px; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.06); background: rgba(5,5,10,0.95); backdrop-filter: blur(25px); flex-shrink: 0; }
         
-        /* 🔥 LOS BOTONES AHORA ESTÁN ARRIBA, SEPARADOS DEL NÚMERO */
-        .cashier-actions { display: flex; justify-content: flex-start; padding: 10px 24px 0; gap: 10px; flex-shrink: 0; }
+        .cashier-actions { display: flex; justify-content: flex-start; padding: 8px 24px 0; gap: 10px; flex-shrink: 0; }
         
         .indicator-pill { font-family: 'Orbitron', sans-serif; font-size: 0.75rem; font-weight: 900; padding: 8px 16px; border-radius: 999px; text-transform: uppercase; }
         .indicator-pill.cyan { background: rgba(0,240,255,0.08); border: 1.5px solid rgba(0,240,255,0.3); color: var(--neon-cyan); }
         .indicator-pill.purple { background: rgba(180,0,255,0.08); border: 1.5px solid rgba(180,0,255,0.3); color: var(--neon-purple); }
         
-        /* 🔥 CAJA DEL NÚMERO EXCLUSIVA, CON ESPACIO SEGURO Y OVERFLOW HIDDEN PARA NO PISAR NADA */
-        .calc-display-wrapper { flex: 1 1 auto; display: flex; flex-direction: column; justify-content: center; padding: 2px 24px 6px; min-height: 70px; }
+        /* 🔥 AJUSTE MILIMÉTRICO: SUBIDO UN POCO MÁS EL CONTENEDOR DEL NÚMERO 25 */
+        .calc-display-wrapper { flex: 1 1 auto; display: flex; flex-direction: column; justify-content: center; padding: 0 24px 2px; min-height: 60px; }
         
-        .calc-hist { font-family: 'Orbitron', sans-serif; font-size: 1.2rem; color: var(--text-dim); text-align: right; min-height: 25px; font-weight: 700; letter-spacing: 2px; margin-bottom: 2px; }
+        .calc-hist { font-family: 'Orbitron', sans-serif; font-size: 1.1rem; color: var(--text-dim); text-align: right; min-height: 22px; font-weight: 700; letter-spacing: 2px; margin-bottom: 0px; }
         
-        /* 🔥 NÚMERO BLANCO, GIGANTE Y BLINDADO */
         .calc-display { 
             font-family: 'Orbitron', sans-serif; 
             font-size: clamp(3.2rem, 14vw, 5.5rem); 
             font-weight: 900; 
             text-align: right; 
-            line-height: 1.1; 
+            line-height: 1.05; 
             color: #ffffff; 
             white-space: nowrap; 
             overflow: hidden; 
             text-overflow: ellipsis;
-            padding-top: 5px; 
+            padding-top: 2px; 
             width: 100%;
         }
         
-        .btn-small-pill { background: rgba(255,255,255,0.04); border: 1.5px solid rgba(255,255,255,0.08); color: var(--text-soft); padding: 10px 16px; border-radius: 999px; font-family: 'Orbitron', sans-serif; font-weight: 700; font-size: 0.75rem; cursor: pointer; text-transform: uppercase; }
+        .btn-small-pill { background: rgba(255,255,255,0.04); border: 1.5px solid rgba(255,255,255,0.08); color: var(--text-soft); padding: 8px 14px; border-radius: 999px; font-family: 'Orbitron', sans-serif; font-weight: 700; font-size: 0.75rem; cursor: pointer; text-transform: uppercase; }
         .btn-small-pill:active { background: rgba(0,240,255,0.08); border-color: var(--neon-cyan); color: var(--neon-cyan); }
         
-        /* 🔥 ÁREA DE PRODUCTO ACHICADA PARA AHORRAR ESPACIO */
-        .product-selected-area { padding: 0 16px 8px; flex-shrink: 0; }
-        .btn-select-catalog { width: 100%; background: rgba(255,255,255,0.02); border: 2px dashed rgba(255,255,255,0.12); color: var(--text-white); padding: 12px; border-radius: 16px; font-family: 'Orbitron', sans-serif; font-size: 0.9rem; font-weight: 800; cursor: pointer; text-transform: uppercase; }
+        .product-selected-area { padding: 0 16px 6px; flex-shrink: 0; }
+        .btn-select-catalog { width: 100%; background: rgba(255,255,255,0.02); border: 2px dashed rgba(255,255,255,0.12); color: var(--text-white); padding: 10px; border-radius: 16px; font-family: 'Orbitron', sans-serif; font-size: 0.85rem; font-weight: 800; cursor: pointer; text-transform: uppercase; }
         
-        /* Teclado elástico para no romper el alto de la pantalla */
-        .keypad-wrapper { background: linear-gradient(180deg, rgba(12,12,24,0.95), rgba(5,5,10,0.98)); border-top: 1px solid rgba(255,255,255,0.06); border-top-left-radius: 36px; border-top-right-radius: 36px; padding: 16px 16px 20px; box-shadow: 0 -20px 60px rgba(0,0,0,0.6); backdrop-filter: blur(30px); position: relative; flex-shrink: 0; }
-        .keypad-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 10px; }
-        .key-lux { background: linear-gradient(145deg, rgba(40,40,70,0.6), rgba(20,20,40,0.7)); border: 1px solid rgba(255,255,255,0.08); border-radius: 20px; height: clamp(45px, 7.5vh, 65px); display: flex; align-items: center; justify-content: center; font-family: 'Orbitron', sans-serif; font-size: 1.8rem; font-weight: 800; color: white; cursor: pointer; box-shadow: 0 6px 16px rgba(0,0,0,0.4); }
+        .keypad-wrapper { background: linear-gradient(180deg, rgba(12,12,24,0.95), rgba(5,5,10,0.98)); border-top: 1px solid rgba(255,255,255,0.06); border-top-left-radius: 36px; border-top-right-radius: 36px; padding: 14px 16px 18px; box-shadow: 0 -20px 60px rgba(0,0,0,0.6); backdrop-filter: blur(30px); position: relative; flex-shrink: 0; }
+        .keypad-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 8px; }
+        .key-lux { background: linear-gradient(145deg, rgba(40,40,70,0.6), rgba(20,20,40,0.7)); border: 1px solid rgba(255,255,255,0.08); border-radius: 18px; height: clamp(42px, 7vh, 60px); display: flex; align-items: center; justify-content: center; font-family: 'Orbitron', sans-serif; font-size: 1.7rem; font-weight: 800; color: white; cursor: pointer; box-shadow: 0 6px 16px rgba(0,0,0,0.4); }
         .key-lux:active { transform: scale(0.92); }
-        .key-action { color: var(--neon-cyan); font-size: 2rem; }
+        .key-action { color: var(--neon-cyan); font-size: 1.8rem; }
         .key-clear { color: var(--neon-red); background: rgba(255,45,85,0.12); border-color: rgba(255,45,85,0.25); font-weight: 900; }
         .key-zero { grid-column: span 2; }
         
-        .btn-cobrar-efe { background: var(--grad-purple); color: white; font-family: 'Orbitron', sans-serif; font-weight: 900; border: none; display: flex; flex-direction: column; gap: 2px; grid-column: span 2; height: auto; border-radius: 20px; }
-        .btn-cobrar-efe .k-icon { font-size: 1.5rem; }
-        .btn-cobrar-efe .k-text { font-size: 0.75rem; letter-spacing: 1.5px; text-transform: uppercase; }
-        .btn-cobrar-tra { background: var(--grad-cyan); color: #001018; font-family: 'Orbitron', sans-serif; font-weight: 900; border: none; display: flex; justify-content: center; align-items: center; gap: 10px; grid-column: span 4; height: clamp(50px, 8vh, 68px); margin-top: 4px; border-radius: 20px; }
-        .btn-cobrar-tra .k-icon { font-size: 1.6rem; }
-        .btn-cobrar-tra .k-text { font-size: 0.95rem; letter-spacing: 1.5px; text-transform: uppercase; }
+        .btn-cobrar-efe { background: var(--grad-purple); color: white; font-family: 'Orbitron', sans-serif; font-weight: 900; border: none; display: flex; flex-direction: column; gap: 2px; grid-column: span 2; height: auto; border-radius: 18px; }
+        .btn-cobrar-efe .k-icon { font-size: 1.4rem; }
+        .btn-cobrar-efe .k-text { font-size: 0.7rem; letter-spacing: 1.5px; text-transform: uppercase; }
+        .btn-cobrar-tra { background: var(--grad-cyan); color: #001018; font-family: 'Orbitron', sans-serif; font-weight: 900; border: none; display: flex; justify-content: center; align-items: center; gap: 10px; grid-column: span 4; height: clamp(46px, 7.5vh, 62px); margin-top: 2px; border-radius: 18px; }
+        .btn-cobrar-tra .k-icon { font-size: 1.5rem; }
+        .btn-cobrar-tra .k-text { font-size: 0.9rem; letter-spacing: 1.5px; text-transform: uppercase; }
         
         .modal, .catalog-fullscreen { position: fixed; inset: 0; width: 100vw; height: 100dvh; background: rgba(0,0,0,0.85); backdrop-filter: blur(25px); display: none; z-index: 9999; }
-        .modal { justify-content: center; align-items: center; padding: 20px; }
-        .modal-content { width: 100%; max-width: 420px; background: linear-gradient(145deg, rgba(25,25,50,0.95), rgba(12,12,25,0.98)); padding: 32px 26px; border-radius: 28px; border: 1.5px solid rgba(255,255,255,0.08); text-align: center; box-shadow: 0 30px 80px rgba(0,0,0,0.7); position: relative; }
+        .modal { justify-content: center; align-items: center; padding: 15px; }
+        
+        /* 🔥 MODAL AJUSTADO PARA QUE NUNCA SE CORTE ARRIBA (CON SCROLL INTERNO SI ES NECESARIO) */
+        .modal-content { width: 100%; max-width: 400px; max-height: 90dvh; overflow-y: auto; background: linear-gradient(145deg, rgba(25,25,50,0.95), rgba(12,12,25,0.98)); padding: 22px 20px; border-radius: 28px; border: 1.5px solid rgba(255,255,255,0.08); text-align: center; box-shadow: 0 30px 80px rgba(0,0,0,0.7); position: relative; }
         
         .catalog-fullscreen { flex-direction: column; }
         .catalog-header { padding: 20px 24px; background: rgba(10,10,20,0.98); border-bottom: 1px solid rgba(255,255,255,0.06); display: flex; justify-content: space-between; align-items: center; }
@@ -272,11 +270,11 @@
         .empty-state { text-align: center; padding: 40px 20px; border-radius: 20px; border: 1.5px dashed rgba(255,255,255,0.1); background: rgba(255,255,255,0.02); }
         .empty-state-icon { font-size: 3rem; opacity: 0.35; margin-bottom: 12px; }
         
-        .scanner-big-icon { font-size: 4rem; line-height: 1; margin-bottom: 10px; }
-        .entregar-box { background: rgba(0,255,148,0.12); border: 2px solid rgba(0,255,148,0.4); border-radius: 22px; padding: 22px; margin: 18px 0; }
-        .entregar-label { font-family: 'Orbitron', sans-serif; font-size: 0.8rem; letter-spacing: 3px; color: var(--neon-green); text-transform: uppercase; margin-bottom: 10px; font-weight: 900; }
-        .entregar-producto { font-family: 'Orbitron', sans-serif; font-size: clamp(1.6rem, 7vw, 2.4rem); font-weight: 900; line-height: 1.1; color: white; text-transform: uppercase; word-break: break-word; }
-        .entregar-cantidad { display: inline-block; margin-top: 12px; padding: 8px 20px; border-radius: 999px; background: var(--grad-gold); color: #1a0f00; font-family: 'Orbitron', sans-serif; font-weight: 900; font-size: 1.2rem; letter-spacing: 2px; }
+        .scanner-big-icon { font-size: 3.5rem; line-height: 1; margin-bottom: 8px; }
+        .entregar-box { background: rgba(0,255,148,0.12); border: 2px solid rgba(0,255,148,0.4); border-radius: 20px; padding: 18px; margin: 14px 0; }
+        .entregar-label { font-family: 'Orbitron', sans-serif; font-size: 0.75rem; letter-spacing: 3px; color: var(--neon-green); text-transform: uppercase; margin-bottom: 8px; font-weight: 900; }
+        .entregar-producto { font-family: 'Orbitron', sans-serif; font-size: clamp(1.4rem, 6vw, 2.2rem); font-weight: 900; line-height: 1.1; color: white; text-transform: uppercase; word-break: break-word; }
+        .entregar-cantidad { display: inline-block; margin-top: 10px; padding: 6px 16px; border-radius: 999px; background: var(--grad-gold); color: #1a0f00; font-family: 'Orbitron', sans-serif; font-weight: 900; font-size: 1.1rem; letter-spacing: 2px; }
         
         #banner-qr-canvas canvas, #banner-qr-canvas img { max-width: 100% !important; height: auto !important; border-radius: 12px; }
         #offline-banner { display: none; background: var(--neon-red); color: white; text-align: center; font-family: 'Orbitron', sans-serif; font-size: 0.75rem; font-weight: 900; padding: 6px; letter-spacing: 2px; text-transform: uppercase; position: fixed; top: 0; left: 0; width: 100%; z-index: 99999; }
@@ -493,13 +491,12 @@
             <span onclick="volverRoles()" style="color: var(--text-soft); cursor: pointer; font-family: 'Orbitron', sans-serif; font-weight: 800; font-size: 0.7rem; padding: 8px 14px; border: 1.5px solid rgba(255,255,255,0.1); border-radius: 999px; background: rgba(255,255,255,0.04); letter-spacing: 1.5px;">SALIR</span>
         </div>
         
-        <!-- 🔥 BOTONES PROTEGIDOS ARRIBA Y A LA IZQUIERDA -->
         <div class="cashier-actions">
             <button class="btn-small-pill" onclick="abrirMisVentas()">🧾 VENTAS</button>
             <button class="btn-small-pill" style="color: var(--neon-cyan); border-color: rgba(0,240,255,0.35); background: rgba(0,240,255,0.06);" onclick="closeRegister()">🔒 CORTE</button>
         </div>
         
-        <!-- 🔥 EL NÚMERO TIENE SU PROPIO ESPACIO LIBRE Y NUNCA SE APLASTA -->
+        <!-- NÚMERO SUBIDO MILIMÉTRICAMENTE -->
         <div class="calc-display-wrapper">
             <div id="calc-hist" class="calc-hist"></div>
             <div id="calc-total" class="calc-display">0</div>
@@ -773,21 +770,21 @@
     </div>
     
     <div class="modal" id="modal-qr">
-        <div class="modal-content" id="modal-qr-content" style="border-color: rgba(0,240,255,0.5); padding: 30px 24px;">
-            <div style="display: flex; justify-content: center; align-items: center; gap: 10px; margin-bottom: 14px;">
-                <span style="font-size: 1.8rem;">✅</span>
-                <h2 class="font-display neon-cyan" style="font-size: 1.3rem; margin: 0; letter-spacing: 3px;">COBRO EXITOSO</h2>
+        <div class="modal-content" id="modal-qr-content" style="border-color: rgba(0,240,255,0.5);">
+            <div style="display: flex; justify-content: center; align-items: center; gap: 10px; margin-bottom: 10px;">
+                <span style="font-size: 1.6rem;">✅</span>
+                <h2 class="font-display neon-cyan" style="font-size: 1.2rem; margin: 0; letter-spacing: 3px;">COBRO EXITOSO</h2>
             </div>
-            <div id="qr-amount" class="font-display" style="font-size: 1.8rem; font-weight: 900; margin-bottom: 10px; background: var(--grad-gold); -webkit-background-clip: text; background-clip: text; color: transparent;"></div>
-            <div id="qr-product-info" style="font-family:'Orbitron'; font-size:0.8rem; color:var(--text-soft); letter-spacing:1px; margin-bottom:20px; text-transform:uppercase;"></div>
+            <div id="qr-amount" class="font-display" style="font-size: 1.5rem; font-weight: 900; margin-bottom: 6px; background: var(--grad-gold); -webkit-background-clip: text; background-clip: text; color: transparent;"></div>
+            <div id="qr-product-info" style="font-family:'Orbitron'; font-size:0.75rem; color:var(--text-soft); letter-spacing:1px; margin-bottom:14px; text-transform:uppercase;"></div>
             
-            <div id="qr-container" style="background: white; padding: 18px; border-radius: 24px; display: inline-block; margin: 10px 0 20px; box-shadow: 0 15px 40px rgba(0,240,255,0.3);"></div>
+            <div id="qr-container" style="background: white; padding: 14px; border-radius: 20px; display: inline-block; margin: 5px 0 14px; box-shadow: 0 15px 40px rgba(0,240,255,0.3);"></div>
             
-            <p style="color: var(--text-gray); font-size: 0.85rem; font-weight: 500; line-height: 1.5; margin: 0 0 15px;">Mostrale este QR al cliente o envialo a la tablet. <b class="neon-red">ES DE 1 SOLO USO.</b></p>
+            <p style="color: var(--text-gray); font-size: 0.8rem; font-weight: 500; line-height: 1.4; margin: 0 0 14px;">Mostrale este QR al cliente o envialo a la tablet. <b class="neon-red">ES DE 1 SOLO USO.</b></p>
             
             <div id="qr-buttons">
-                <button class="btn btn-purple" style="margin-bottom: 12px; font-size: 0.85rem;" onclick="compartirQR()">📸 COMPARTIR TICKET VIP</button>
-                <button class="btn btn-cyan" style="margin-bottom: 0;" onclick="document.getElementById('modal-qr').style.display='none'; clearCalc();">FINALIZAR</button>
+                <button class="btn btn-purple" style="margin-bottom: 10px; font-size: 0.8rem; padding: 14px;" onclick="compartirQR()">📸 COMPARTIR TICKET VIP</button>
+                <button class="btn btn-cyan" style="margin-bottom: 0; padding: 14px;" onclick="document.getElementById('modal-qr').style.display='none'; clearCalc();">FINALIZAR</button>
             </div>
         </div>
     </div>
@@ -1320,7 +1317,6 @@
             document.getElementById('admin-history-container').innerHTML = h;
         }
         
-        // 🔥 MEJORA VISUAL: Lista del catálogo
         function openCatalogModal() {
             const tipo = currentModule === 'Boletería' ? 'entrada' : 'bebida'; const tit = document.getElementById('catalog-title');
             if (tit) { tit.innerText = tipo === 'entrada' ? '🎟️ ENTRADAS' : `🍸 ${currentBarraId.toUpperCase()}`; tit.className = 'font-display ' + (tipo === 'entrada' ? 'neon-purple' : 'neon-cyan'); }
@@ -1345,23 +1341,22 @@
         
         function closeCatalogModal() { document.getElementById('catalog-modal').style.display = 'none'; }
         
-        // 🔥 MEJORA VISUAL Y DE ESPACIO: Cartel del artículo adaptado
         function selectProduct(id) {
             const p = dbState.inventory.find(i => i.id === id); if (!p) return; selProd = p;
             document.getElementById('caja-product-area').innerHTML = `
-                <div style="display:flex;justify-content:space-between;align-items:center;background:rgba(255,255,255,0.05);border:2px solid rgba(0,240,255,0.4);border-radius:16px;padding:10px 16px;box-shadow:0 4px 15px rgba(0,0,0,0.5);">
+                <div style="display:flex;justify-content:space-between;align-items:center;background:rgba(255,255,255,0.05);border:2px solid rgba(0,240,255,0.4);border-radius:14px;padding:8px 14px;box-shadow:0 4px 12px rgba(0,0,0,0.5);">
                     <div style="flex:1; overflow:hidden; padding-right:10px;">
-                        <div class="text-truncate" style="font-family:'Orbitron';color:white;font-weight:900;font-size:1.1rem;letter-spacing:1px;text-transform:uppercase;">${p.category==='entrada'?'🎟️':'🍸'} ${p.name}</div>
-                        <div style="color:#00ff94;font-weight:800;font-size:0.7rem;margin-top:4px;letter-spacing:1px;text-transform:uppercase;">✓ SELECCIONADO</div>
+                        <div class="text-truncate" style="font-family:'Orbitron';color:white;font-weight:900;font-size:1rem;letter-spacing:1px;text-transform:uppercase;">${p.category==='entrada'?'🎟️':'🍸'} ${p.name}</div>
+                        <div style="color:#00ff94;font-weight:800;font-size:0.65rem;margin-top:2px;letter-spacing:1px;text-transform:uppercase;">✓ SELECCIONADO</div>
                     </div>
-                    <div style="display:flex;flex-direction:column;align-items:flex-end;gap:8px;">
-                        <button class="btn-small-pill" style="padding:6px 12px;font-size:0.75rem;border-color:rgba(255,45,85,0.4);color:#ff2d55;background:rgba(255,45,85,0.1);font-weight:900;" onclick="clearCalc()">CANCELAR</button>
+                    <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;">
+                        <button class="btn-small-pill" style="padding:4px 10px;font-size:0.7rem;border-color:rgba(255,45,85,0.4);color:#ff2d55;background:rgba(255,45,85,0.1);font-weight:900;" onclick="clearCalc()">CANCELAR</button>
                     </div>
                 </div>`;
             closeCatalogModal(); expr = ''; inputCalc(p.price.toString()); inputCalc('*');
         }
         
-        function updateCalcDisplay() { const d = document.getElementById('calc-total'); if(d){ const len = d.innerText.replace(/[^0-9]/g,'').length; d.style.fontSize = len>8 ? '2.5rem' : len>5 ? '3.5rem' : 'clamp(3.2rem, 14vw, 5.2rem)'; } }
+        function updateCalcDisplay() { const d = document.getElementById('calc-total'); if(d){ const len = d.innerText.replace(/[^0-9]/g,'').length; d.style.fontSize = len>8 ? '2.3rem' : len>5 ? '3.2rem' : 'clamp(3rem, 13vw, 5rem)'; } }
         
         function inputCalc(v) { 
             expr += v; 
@@ -1371,7 +1366,6 @@
             try {
                 if(t) {
                     let eStr = expr;
-                    // Si termina en operador de multiplicar, lo cortamos invisiblemente para mostrar el valor real
                     if (eStr.endsWith('*')) eStr = eStr.slice(0, -1);
                     if (eStr === '') eStr = '0';
                     t.innerText = fmt(eval(eStr) || 0);
@@ -1462,14 +1456,13 @@
             let qty = 1; if (expr.includes('*')) { const ps = expr.split('*'); const n = parseFloat(ps[ps.length - 1]); if (!isNaN(n) && n > 0) qty = n; }
             const tid = generateUUID(); const logId = generateUUID(); 
             
-            // 🔥 FIX LÓGICO: Dejamos el acento intacto al guardar en la base de datos para que no se pierdan las ventas
             const safeOrigin = currentBarraId; 
             const safeProduct = selProd.name; 
             const qrPayload = "VIPCLUB:" + cUser + ":" + tid;
 
             const qc = document.getElementById('qr-container'); const mq = document.getElementById('modal-qr');
             if (mq) mq.style.display = 'flex';
-            if (qc) { qc.innerHTML = `<div style="padding:30px; text-align:center;"><div style="font-size:3rem; animation: ledPulse 1s infinite;">⏳</div><div style="font-family:'Orbitron'; color:var(--neon-cyan); margin-top:15px; font-weight:bold; letter-spacing:2px; font-size: 0.8rem;">AUTORIZANDO EN NUBE...</div></div>`; }
+            if (qc) { qc.innerHTML = `<div style="padding:20px; text-align:center;"><div style="font-size:2.5rem; animation: ledPulse 1s infinite;">⏳</div><div style="font-family:'Orbitron'; color:var(--neon-cyan); margin-top:10px; font-weight:bold; letter-spacing:2px; font-size: 0.75rem;">AUTORIZANDO EN NUBE...</div></div>`; }
 
             try {
                 const { error: err1 } = await _supabase.from('tickets').insert([{ id: tid, local_id: cUser, qty: qty, product: safeProduct, category: selProd.category, amount: val, origin: safeOrigin, method: method, status: 'ACTIVO', date: getDateStr(), time: getTimeStr() }]);
@@ -1486,7 +1479,7 @@
 
                 document.getElementById('qr-amount').innerText = `$${fmt(val)} · ${method}`;
                 document.getElementById('qr-product-info').innerText = `${qty}x ${safeProduct.toUpperCase()} · ${currentBarraId.toUpperCase()}`;
-                if (qc) { qc.innerHTML = ''; new QRCode(qc, { text: qrPayload, width: 250, height: 250, colorDark: '#ff0080', colorLight: '#ffffff', correctLevel: QRCode.CorrectLevel.M }); }
+                if (qc) { qc.innerHTML = ''; new QRCode(qc, { text: qrPayload, width: 200, height: 200, colorDark: '#ff0080', colorLight: '#ffffff', correctLevel: QRCode.CorrectLevel.M }); }
             } catch(e) {
                 showPremiumAlert("ERROR DE TRANSACCIÓN", "La nube rechazó el ticket.");
                 if (mq) mq.style.display = 'none';
@@ -1588,7 +1581,7 @@
                     } else if (data.codigo === 'USADO') {
                         box.innerHTML = `<div class="scanner-big-icon neon-red">🔥</div><h2 class="font-display neon-red" style="font-size:1.6rem;">¡QR YA QUEMADO!</h2><button class="btn btn-purple" onclick="cerrarAlertaBarra()">VOLVER A ESCANEAR</button>`; box.style.borderColor = 'rgba(255,45,85,0.4)';
                     } else if (data.codigo === 'ES_ENTRADA') {
-                        box.innerHTML = `<div class="scanner-big-icon neon-purple">🎟️</div><h2 class="font-display neon-purple" style="font-size:1.6rem;">ES UNA ENTRADA</h2><p>Este QR es de puerta.</p><button class="btn btn-purple" onclick="cerrarAlertaBarra()">VOLVER A ESCANEAR</button>`; box.style.borderColor = 'rgba(180,0,255,0.4)';
+                        box.innerHTML = `<div class="scanner-big-icon neon-purple">🎟️</div><h2 class="font-display neon-purple" style="font-size:1.6rem;">ES UNA ENTRADA</h2><p>This QR is for entrance.</p><button class="btn btn-purple" onclick="cerrarAlertaBarra()">VOLVER A ESCANEAR</button>`; box.style.borderColor = 'rgba(180,0,255,0.4)';
                     }
                 } else {
                     try { const voz = new SpeechSynthesisUtterance(); voz.text = `ENTREGAR: ${data.qty} ${data.product.toUpperCase()}`; voz.lang = 'es-AR'; window.speechSynthesis.cancel(); window.speechSynthesis.speak(voz); } catch(e){}
