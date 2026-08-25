@@ -197,22 +197,24 @@
         .calc-display-wrapper { flex: 1; display: flex; flex-direction: column; justify-content: center; padding: 10px 24px; min-height: 0; }
         .calc-hist { font-family: 'Orbitron', sans-serif; font-size: 1.3rem; color: var(--text-dim); text-align: right; min-height: 30px; font-weight: 700; letter-spacing: 2px; margin-bottom: 5px; }
         
-        /* 🔥 SOLUCIÓN DEL NÚMERO RECORTADO (OVERFLOW VISIBLE) Y COLOR BLANCO */
+        /* 🔥 SOLUCIÓN DEL NÚMERO RECORTADO Y TAMAÑO AMPLIADO */
         .calc-display { 
             font-family: 'Orbitron', sans-serif; 
-            font-size: clamp(2.5rem, 12vw, 4.2rem); 
+            font-size: clamp(3rem, 13vw, 5rem); /* <-- Agrandado ligeramente para sumar ese 1mm visual */
             font-weight: 900; 
             text-align: right; 
             line-height: 1.1; 
             color: #ffffff; 
             white-space: nowrap; 
-            overflow: visible; /* EVITA QUE SE RECORTE LA CABEZA DEL NÚMERO */
+            overflow: visible; /* <-- Evita que se ampute la cabeza de los números */
             letter-spacing: -1px; 
-            padding-top: 10px; 
-            padding-bottom: 10px; 
+            padding-top: 15px; 
+            padding-bottom: 15px; 
         }
         
-        .cashier-actions { display: flex; justify-content: flex-end; padding: 0 20px 10px; gap: 10px; flex-wrap: wrap; flex-shrink: 0; }
+        /* 🔥 SOLUCIÓN DEL OVERLAP: Alineados a la izquierda para dejar libre el sector de los números */
+        .cashier-actions { display: flex; justify-content: flex-start; padding: 0 20px 10px; gap: 10px; flex-wrap: wrap; flex-shrink: 0; }
+        
         .btn-small-pill { background: rgba(255,255,255,0.04); border: 1.5px solid rgba(255,255,255,0.08); color: var(--text-soft); padding: 10px 16px; border-radius: 999px; font-family: 'Orbitron', sans-serif; font-weight: 700; font-size: 0.75rem; cursor: pointer; text-transform: uppercase; }
         .btn-small-pill:active { background: rgba(0,240,255,0.08); border-color: var(--neon-cyan); color: var(--neon-cyan); }
         
@@ -1353,7 +1355,7 @@
         }
         
         // 🔥 MEJORA JS: Lógica impecable y en vivo.
-        function updateCalcDisplay() { const d = document.getElementById('calc-total'); if(d){ const len = d.innerText.replace(/[^0-9]/g,'').length; d.style.fontSize = len>8 ? '2.5rem' : len>5 ? '3.5rem' : 'clamp(3rem, 12vw, 4.5rem)'; } }
+        function updateCalcDisplay() { const d = document.getElementById('calc-total'); if(d){ const len = d.innerText.replace(/[^0-9]/g,'').length; d.style.fontSize = len>8 ? '2.5rem' : len>5 ? '3.5rem' : 'clamp(3rem, 13vw, 5rem)'; } }
         
         function inputCalc(v) { 
             expr += v; 
