@@ -1513,8 +1513,8 @@
                 document.getElementById('qr-amount').innerText = `$${fmt(val)} · ${method}`;
                 document.getElementById('qr-product-info').innerText = `${qty}x ${safeProduct.toUpperCase()} · ${currentBarraId.toUpperCase()}`;
                 
-                /* 🔥 SOLUCIÓN: QR se ajusta a 170x170 para que jamás salga de pantalla en ningún celu */
-                if (qc) { qc.innerHTML = ''; new QRCode(qc, { text: qrPayload, width: 170, height: 170, colorDark: '#ff0080', colorLight: '#ffffff', correctLevel: QRCode.CorrectLevel.M }); }
+                /* 🔥 SOLUCIÓN: QR se ajusta a 190x190 para sumarle 1mm más */
+                if (qc) { qc.innerHTML = ''; new QRCode(qc, { text: qrPayload, width: 190, height: 190, colorDark: '#ff0080', colorLight: '#ffffff', correctLevel: QRCode.CorrectLevel.M }); }
             } catch(e) {
                 showPremiumAlert("ERROR DE TRANSACCIÓN", "La nube rechazó el ticket.");
                 if (mq) mq.style.display = 'none';
@@ -1640,6 +1640,10 @@
         async function compartirQR() {
             try {
                 const targetNode = document.getElementById('modal-qr-content'); const btnContainer = document.getElementById('qr-buttons'); btnContainer.style.display = 'none';
+                
+                /* 🔥 FIX BLANCO: Le damos 400ms al navegador para que termine de "pintar" el QR antes de sacarle la foto */
+                await new Promise(resolve => setTimeout(resolve, 400));
+
                 const canvas = await html2canvas(targetNode, { backgroundColor: '#0a0a14', scale: 2 });
                 btnContainer.style.display = 'block'; const dataUrl = canvas.toDataURL('image/png');
                 const res = await fetch(dataUrl); const blob = await res.blob(); const file = new File([blob], `VIP-Ticket-${Date.now()}.png`, { type: "image/png" });
