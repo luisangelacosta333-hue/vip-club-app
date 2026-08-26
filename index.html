@@ -1636,12 +1636,28 @@
 
         async function compartirQR() {
             try {
-                const targetNode = document.getElementById('modal-qr-content'); const btnContainer = document.getElementById('qr-buttons'); btnContainer.style.display = 'none';
-                const canvas = await html2canvas(targetNode, { backgroundColor: '#0a0a14', scale: 2 });
-                btnContainer.style.display = 'block'; const dataUrl = canvas.toDataURL('image/png');
-                const res = await fetch(dataUrl); const blob = await res.blob(); const file = new File([blob], `VIP-Ticket-${Date.now()}.png`, { type: "image/png" });
-                if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ title: 'Pase VIP', files: [file] }); } else showPremiumAlert("INFO", "Dispositivo no soporta share.");
-            } catch (err) { const b = document.getElementById('qr-buttons'); if (b) b.style.display = 'block'; }
+                const targetNode = document.getElementById('modal-qr-content'); 
+                const btnContainer = document.getElementById('qr-buttons'); 
+                btnContainer.style.display = 'none';
+                
+                await new Promise(resolve => setTimeout(resolve, 50));
+                
+                const canvas = await html2canvas(targetNode, { backgroundColor: '#0a0a14', scale: 2, useCORS: true, scrollX: 0, scrollY: -window.scrollY });
+                btnContainer.style.display = 'block'; 
+                
+                canvas.toBlob(async (blob) => {
+                    if (!blob) { showPremiumAlert("ERROR", "Error generando imagen."); return; }
+                    const file = new File([blob], `VIP-Ticket-${Date.now()}.png`, { type: "image/png" });
+                    if (navigator.canShare && navigator.canShare({ files: [file] })) { 
+                        await navigator.share({ title: 'Pase VIP', files: [file] }); 
+                    } else { 
+                        showPremiumAlert("INFO", "Dispositivo no soporta share."); 
+                    }
+                }, 'image/png', 1.0);
+            } catch (err) { 
+                const b = document.getElementById('qr-buttons'); 
+                if (b) b.style.display = 'block'; 
+            }
         }
 
         function generarQRBanner() { 
