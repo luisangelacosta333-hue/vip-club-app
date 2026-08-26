@@ -720,8 +720,8 @@
     <div class="modal" id="modal-barra-pin">
         <div class="modal-content" style="border-color: rgba(0,240,255,0.35);">
             <h2 class="font-display neon-cyan" id="title-modal-barra-pin" style="margin-top: 0; font-size: 1.2rem; letter-spacing: 2px;">🔒 BARRA PROTEGIDA</h2>
-            <p style="color: var(--text-gray); margin-bottom: 20px; font-size: 0.9rem; font-weight: 500;">Ingresá el PIN de 3 dígitos de esta barra</p>
-            <input type="password" id="input-barra-pin" class="input-lux" style="text-align: center; font-size: 2rem; letter-spacing: 14px; padding: 14px; font-family: 'Orbitron', sans-serif;" maxlength="3" inputmode="numeric" autocomplete="off">
+            <p style="color: var(--text-gray); margin-bottom: 20px; font-size: 0.9rem; font-weight: 500;">Ingresá el PIN de esta barra (o el PIN Maestro)</p>
+            <input type="password" id="input-barra-pin" class="input-lux" style="text-align: center; font-size: 2rem; letter-spacing: 14px; padding: 14px; font-family: 'Orbitron', sans-serif;" maxlength="4" inputmode="numeric" autocomplete="off">
             <div style="display: flex; gap: 14px; margin-top: 18px;">
                 <button class="btn-outline" style="flex: 1; margin-bottom: 0; font-family: 'Orbitron', sans-serif; letter-spacing: 1.5px;" onclick="document.getElementById('modal-barra-pin').style.display='none'">CANCELAR</button>
                 <button class="btn btn-cyan" style="flex: 1; margin-bottom: 0;" onclick="validarPinBarra()">ENTRAR</button>
@@ -1079,10 +1079,17 @@
             const pinIngresado = document.getElementById('input-barra-pin').value.trim();
             if (!pendingBarraObj) return;
             const pinReal = pendingBarraObj.pin || "000";
-            if (pinIngresado === pinReal) {
+            
+            if (pinIngresado === "") {
+                return showPremiumAlert("CANDADO", "Ingresá un PIN para entrar.");
+            }
+
+            if (pinIngresado === pinReal || pinIngresado === cAdminPin || pinIngresado === cPin) {
                 document.getElementById('modal-barra-pin').style.display = 'none';
                 entrarABarra(pendingBarraObj.nombre);
-            } else { showPremiumAlert("CANDADO", "PIN incorrecto."); }
+            } else { 
+                showPremiumAlert("CANDADO", "PIN incorrecto. Acceso denegado."); 
+            }
         }
         
         function entrarABarra(n) {
@@ -1110,7 +1117,7 @@
             if (!navigator.onLine) return showPremiumAlert("SISTEMA BLOQUEADO", "Requiere internet.");
             const n = (document.getElementById('add-nombre-barra').value||'').trim();
             const p = (document.getElementById('add-pin-barra').value||'').trim();
-            if (!n || !p || p.length !== 3) return showPremiumAlert("DATOS FALTANTES", "Completá nombre y un PIN de 3 dígitos.");
+            if (!n || !p || (p.length !== 3 && p.length !== 4)) return showPremiumAlert("DATOS FALTANTES", "Completá nombre y un PIN de 3 o 4 dígitos.");
             
             const btn = document.getElementById('btn-crear-barra');
             if(btn) { btn.innerText = "⏳ CREANDO EN NUBE..."; btn.disabled = true; }
@@ -1465,37 +1472,26 @@
             if (qc) { qc.innerHTML = `<div style="padding:20px; text-align:center;"><div style="font-size:2.5rem; animation: ledPulse 1s infinite;">⏳</div><div style="font-family:'Orbitron'; color:var(--neon-cyan); margin-top:10px; font-weight:bold; letter-spacing:2px; font-size: 0.75rem;">AUTORIZANDO EN NUBE...</div></div>`; }
 
             try {
+                // 1. DESCONTAR STOCK PRIMERO BLINDADO
+                if (selProd.id !== 'GEN-ENT') {
+                    const stockActualizado = Math.max(0, selProd.stock - qty);
+                    const { error: updErr } = await _supabase
+                        .from('inventario')
+                        .update({ stock: stockActualizado })
+                        .eq('id', selProd.id);
+
+                    if (updErr) throw new Error("Error actualizando stock. Permiso denegado o falla en base de datos.");
+                    
+                    selProd.stock = stockActualizado;
+                }
+
+                // 2. INSERTAR TICKET DE COMPRA
                 const { error: err1 } = await _supabase.from('tickets').insert([{ id: tid, local_id: cUser, qty: qty, product: safeProduct, category: selProd.category, amount: val, origin: safeOrigin, method: method, status: 'ACTIVO', date: getDateStr(), time: getTimeStr() }]);
                 if(err1) throw err1;
 
+                // 3. INSERTAR LOG DE HISTORIAL
                 const { error: err2 } = await _supabase.from('logs').insert([{ id: logId, local_id: cUser, type: 'VENTA', method: method, amount: val, description: `${qty}x ${safeProduct}`, origin: safeOrigin, foto_base64: fotoUrl, ticket_id: tid, date: getDateStr(), time: getTimeStr() }]);
                 if(err2) throw err2;
-
-                if (selProd.id !== 'GEN-ENT') {
-                    const stockActualizado = Math.max(0, selProd.stock - qty);
-                    
-                    const { data: updData, error: updErr } = await _supabase
-                        .from('inventario')
-                        .update({ stock: stockActualizado })
-                        .eq('id', selProd.id)
-                        .select();
-
-                    if (updErr || !updData || updData.length === 0) {
-                        const nuevoId = 'ITM-' + Date.now() + '-' + Math.floor(Math.random() * 9999);
-                        await _supabase.from('inventario').insert([{ 
-                            id: nuevoId, 
-                            local_id: cUser, 
-                            name: selProd.name, 
-                            price: selProd.price, 
-                            stock: stockActualizado, 
-                            category: selProd.category, 
-                            bar_id: selProd.barId 
-                        }]);
-                        await _supabase.from('inventario').delete().eq('id', selProd.id);
-                        selProd.id = nuevoId;
-                    }
-                    selProd.stock = stockActualizado;
-                }
                 
                 await fetchCloudState();
 
@@ -1504,7 +1500,8 @@
                 
                 if (qc) { qc.innerHTML = ''; new QRCode(qc, { text: qrPayload, width: 200, height: 200, colorDark: '#ff0080', colorLight: '#ffffff', correctLevel: QRCode.CorrectLevel.M }); }
             } catch(e) {
-                showPremiumAlert("ERROR DE TRANSACCIÓN", "La nube rechazó el ticket.");
+                console.error("Venta rechazada por la nube:", e);
+                showPremiumAlert("ERROR DE TRANSACCIÓN", "La base de datos rechazó la operación. Revisá las políticas RLS en Supabase.");
                 if (mq) mq.style.display = 'none';
             }
         }
