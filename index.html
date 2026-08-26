@@ -188,8 +188,8 @@
         .text-truncate { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%; }
         .input-group-row { display: flex; gap: 12px; width: 100%; }
         
-        /* 🔥 SOLUCIÓN: Calculadora 100% fija, sin scroll vertical en mobile */
-        #view-caja { padding: 0 !important; background: transparent; height: 100dvh; display: flex; flex-direction: column; box-sizing: border-box; overflow: hidden; }
+        /* 🔥 SOLUCIÓN DEFINITIVA: CERO DESBORDES. CONTENEDORES AISLADOS. */
+        #view-caja { padding: 0 !important; background: transparent; height: 100dvh; display: flex; flex-direction: column; box-sizing: border-box; overflow-y: auto; overflow-x: hidden; }
         
         .top-bar-caja { display: flex; justify-content: space-between; padding: 16px 22px; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.06); background: rgba(5,5,10,0.95); backdrop-filter: blur(25px); flex-shrink: 0; }
         
@@ -199,7 +199,8 @@
         .indicator-pill.cyan { background: rgba(0,240,255,0.08); border: 1.5px solid rgba(0,240,255,0.3); color: var(--neon-cyan); }
         .indicator-pill.purple { background: rgba(180,0,255,0.08); border: 1.5px solid rgba(180,0,255,0.3); color: var(--neon-purple); }
         
-        .calc-display-wrapper { flex: 1 1 auto; display: flex; flex-direction: column; justify-content: center; padding: 0 24px 2px; min-height: 60px; overflow: hidden; }
+        /* 🔥 AJUSTE MILIMÉTRICO: SUBIDO UN POCO MÁS EL CONTENEDOR DEL NÚMERO 25 */
+        .calc-display-wrapper { flex: 1 1 auto; display: flex; flex-direction: column; justify-content: center; padding: 0 24px 2px; min-height: 60px; }
         
         .calc-hist { font-family: 'Orbitron', sans-serif; font-size: 1.1rem; color: var(--text-dim); text-align: right; min-height: 22px; font-weight: 700; letter-spacing: 2px; margin-bottom: 0px; }
         
@@ -241,6 +242,7 @@
         .modal, .catalog-fullscreen { position: fixed; inset: 0; width: 100vw; height: 100dvh; background: rgba(0,0,0,0.85); backdrop-filter: blur(25px); display: none; z-index: 9999; }
         .modal { justify-content: center; align-items: center; padding: 15px; }
         
+        /* 🔥 MODAL AJUSTADO PARA QUE NUNCA SE CORTE ARRIBA (CON SCROLL INTERNO SI ES NECESARIO) */
         .modal-content { width: 100%; max-width: 400px; max-height: 90dvh; overflow-y: auto; background: linear-gradient(145deg, rgba(25,25,50,0.95), rgba(12,12,25,0.98)); padding: 22px 20px; border-radius: 28px; border: 1.5px solid rgba(255,255,255,0.08); text-align: center; box-shadow: 0 30px 80px rgba(0,0,0,0.7); position: relative; }
         
         .catalog-fullscreen { flex-direction: column; }
@@ -274,9 +276,6 @@
         .entregar-producto { font-family: 'Orbitron', sans-serif; font-size: clamp(1.4rem, 6vw, 2.2rem); font-weight: 900; line-height: 1.1; color: white; text-transform: uppercase; word-break: break-word; }
         .entregar-cantidad { display: inline-block; margin-top: 10px; padding: 6px 16px; border-radius: 999px; background: var(--grad-gold); color: #1a0f00; font-family: 'Orbitron', sans-serif; font-weight: 900; font-size: 1.1rem; letter-spacing: 2px; }
         
-        /* 🔥 SOLUCIÓN: QR se adapta al ancho de pantalla */
-        #qr-container canvas, #qr-container img { max-width: 100% !important; height: auto !important; margin: 0 auto; display: block; }
-
         #banner-qr-canvas canvas, #banner-qr-canvas img { max-width: 100% !important; height: auto !important; border-radius: 12px; }
         #offline-banner { display: none; background: var(--neon-red); color: white; text-align: center; font-family: 'Orbitron', sans-serif; font-size: 0.75rem; font-weight: 900; padding: 6px; letter-spacing: 2px; text-transform: uppercase; position: fixed; top: 0; left: 0; width: 100%; z-index: 99999; }
     </style>
@@ -604,7 +603,7 @@
             <div class="card card-cyan">
                 <p style="color: var(--text-gray); font-size: 0.85rem; margin: 0 0 16px; font-weight: 600;">Creá barras con PIN único (3 dígitos). Así ningún cajero entra a la caja de otro.</p>
                 <input type="text" id="add-nombre-barra" class="input-lux" placeholder="Nombre (Ej: Barra Principal · VIP)">
-                <input type="password" id="add-pin-barra" class="input-lux" placeholder="PIN Secreto de la Barra (3 dígitos)" maxlength="4" inputmode="numeric">
+                <input type="password" id="add-pin-barra" class="input-lux" placeholder="PIN Secreto de la Barra (3 dígitos)" maxlength="3" inputmode="numeric">
                 <button class="btn btn-cyan" id="btn-crear-barra" style="margin-bottom: 0;" onclick="crearBarra()">+ AGREGAR BARRA CON CANDADO</button>
                 <div id="list-barras" style="margin-top: 22px; display: flex; flex-direction: column; gap: 10px;"></div>
             </div>
@@ -721,9 +720,8 @@
     <div class="modal" id="modal-barra-pin">
         <div class="modal-content" style="border-color: rgba(0,240,255,0.35);">
             <h2 class="font-display neon-cyan" id="title-modal-barra-pin" style="margin-top: 0; font-size: 1.2rem; letter-spacing: 2px;">🔒 BARRA PROTEGIDA</h2>
-            <p style="color: var(--text-gray); margin-bottom: 20px; font-size: 0.9rem; font-weight: 500;">Ingresá el PIN de esta barra (o el PIN Maestro)</p>
-            <!-- 🔥 SOLUCIÓN: Cambiado a maxlength="4" para que entre el PIN del dueño sin trabarse -->
-            <input type="password" id="input-barra-pin" class="input-lux" style="text-align: center; font-size: 2rem; letter-spacing: 14px; padding: 14px; font-family: 'Orbitron', sans-serif;" maxlength="4" inputmode="numeric" autocomplete="off">
+            <p style="color: var(--text-gray); margin-bottom: 20px; font-size: 0.9rem; font-weight: 500;">Ingresá el PIN de 3 dígitos de esta barra</p>
+            <input type="password" id="input-barra-pin" class="input-lux" style="text-align: center; font-size: 2rem; letter-spacing: 14px; padding: 14px; font-family: 'Orbitron', sans-serif;" maxlength="3" inputmode="numeric" autocomplete="off">
             <div style="display: flex; gap: 14px; margin-top: 18px;">
                 <button class="btn-outline" style="flex: 1; margin-bottom: 0; font-family: 'Orbitron', sans-serif; letter-spacing: 1.5px;" onclick="document.getElementById('modal-barra-pin').style.display='none'">CANCELAR</button>
                 <button class="btn btn-cyan" style="flex: 1; margin-bottom: 0;" onclick="validarPinBarra()">ENTRAR</button>
@@ -1081,17 +1079,10 @@
             const pinIngresado = document.getElementById('input-barra-pin').value.trim();
             if (!pendingBarraObj) return;
             const pinReal = pendingBarraObj.pin || "000";
-            
-            if (pinIngresado === "") {
-                return showPremiumAlert("CANDADO", "Ingresá un PIN para entrar.");
-            }
-
-            if (pinIngresado === pinReal || pinIngresado === cAdminPin || pinIngresado === cPin) {
+            if (pinIngresado === pinReal) {
                 document.getElementById('modal-barra-pin').style.display = 'none';
                 entrarABarra(pendingBarraObj.nombre);
-            } else { 
-                showPremiumAlert("CANDADO", "PIN incorrecto. Acceso denegado."); 
-            }
+            } else { showPremiumAlert("CANDADO", "PIN incorrecto."); }
         }
         
         function entrarABarra(n) {
@@ -1119,7 +1110,7 @@
             if (!navigator.onLine) return showPremiumAlert("SISTEMA BLOQUEADO", "Requiere internet.");
             const n = (document.getElementById('add-nombre-barra').value||'').trim();
             const p = (document.getElementById('add-pin-barra').value||'').trim();
-            if (!n || !p || (p.length !== 3 && p.length !== 4)) return showPremiumAlert("DATOS FALTANTES", "Completá nombre y un PIN de 3 o 4 dígitos.");
+            if (!n || !p || p.length !== 3) return showPremiumAlert("DATOS FALTANTES", "Completá nombre y un PIN de 3 dígitos.");
             
             const btn = document.getElementById('btn-crear-barra');
             if(btn) { btn.innerText = "⏳ CREANDO EN NUBE..."; btn.disabled = true; }
@@ -1511,7 +1502,7 @@
                 document.getElementById('qr-amount').innerText = `$${fmt(val)} · ${method}`;
                 document.getElementById('qr-product-info').innerText = `${qty}x ${safeProduct.toUpperCase()} · ${currentBarraId.toUpperCase()}`;
                 
-                if (qc) { qc.innerHTML = ''; new QRCode(qc, { text: qrPayload, width: 196, height: 196, colorDark: '#ff0080', colorLight: '#ffffff', correctLevel: QRCode.CorrectLevel.M }); }
+                if (qc) { qc.innerHTML = ''; new QRCode(qc, { text: qrPayload, width: 200, height: 200, colorDark: '#ff0080', colorLight: '#ffffff', correctLevel: QRCode.CorrectLevel.M }); }
             } catch(e) {
                 showPremiumAlert("ERROR DE TRANSACCIÓN", "La nube rechazó el ticket.");
                 if (mq) mq.style.display = 'none';
@@ -1552,7 +1543,8 @@
             document.getElementById('mis-ventas-container').innerHTML = h; document.getElementById('modal-mis-ventas').style.display = 'flex';
         }
 
-        function iniciarEscaner() { try { window.speechSynthesis.speak(new SpeechSynthesisUtterance('')); } catch(e){} if (html5QrcodeScanner) return; html5QrcodeScanner = new Html5Qrcode("reader"); html5QrcodeScanner.start({ facingMode: "environment" }, { fps: 12, qrbox: { width: 260, height: 260 } }, decodedText => validarTicketPuerta(decodedText), () => {}).catch(err => { showPremiumAlert("ERROR CÁMARA", "Aceptá los permisos."); html5QrcodeScanner = null; }); }
+        function iniciarEscaner() { if (html5QrcodeScanner) return; html5QrcodeScanner = new Html5Qrcode("reader"); html5QrcodeScanner.start({ facingMode: "environment" }, { fps: 12, qrbox: { width: 260, height: 260 } }, decodedText => validarTicketPuerta(decodedText), () => {}).catch(err => { showPremiumAlert("ERROR CÁMARA", "Aceptá los permisos."); html5QrcodeScanner = null; }); }
+
         function detenerEscaner() { if (html5QrcodeScanner) { html5QrcodeScanner.stop().then(() => { html5QrcodeScanner = null; volverRoles(); }); } else volverRoles(); }
         
         async function validarTicketPuerta(raw) {
@@ -1587,7 +1579,8 @@
             } catch(e) { box.innerHTML = `<div class="scanner-big-icon neon-red">❌</div><h2 class="font-display neon-red" style="font-size:1.6rem;">ERROR NUBE</h2><button class="btn btn-purple" onclick="cerrarAlerta()">VOLVER</button>`; }
         }
 
-        function iniciarEscanerBarra() { try { window.speechSynthesis.speak(new SpeechSynthesisUtterance('')); } catch(e){} if (html5QrBarra) return; html5QrBarra = new Html5Qrcode("reader-barra"); html5QrBarra.start({ facingMode: "environment" }, { fps: 12, qrbox: { width: 280, height: 280 } }, decodedText => validarTicketBarra(decodedText), () => {}).catch(err => { showPremiumAlert("ERROR", "Permisos requeridos."); html5QrBarra = null; }); }
+        function iniciarEscanerBarra() { if (html5QrBarra) return; html5QrBarra = new Html5Qrcode("reader-barra"); html5QrBarra.start({ facingMode: "environment" }, { fps: 12, qrbox: { width: 280, height: 280 } }, decodedText => validarTicketBarra(decodedText), () => {}).catch(err => { showPremiumAlert("ERROR", "Permisos requeridos."); html5QrBarra = null; }); }
+
         function detenerEscanerBarra() { if (html5QrBarra) { html5QrBarra.stop().then(() => { html5QrBarra = null; volverRoles(); }); } else volverRoles(); }
         
         async function validarTicketBarra(raw) {
@@ -1638,23 +1631,55 @@
             try {
                 const targetNode = document.getElementById('modal-qr-content'); 
                 const btnContainer = document.getElementById('qr-buttons'); 
+                
+                // 1. Apagamos el scroll y forzamos a que se dibuje completo
+                const originalOverflow = targetNode.style.overflowY;
+                const originalMaxHeight = targetNode.style.maxHeight;
+                
+                targetNode.style.overflowY = 'visible';
+                targetNode.style.maxHeight = 'none'; // Clave para que no corte en celulares
+                targetNode.scrollTop = 0;
+                
+                // 2. Ocultamos los botones
                 btnContainer.style.display = 'none';
                 
-                await new Promise(resolve => setTimeout(resolve, 50));
-                
-                const canvas = await html2canvas(targetNode, { backgroundColor: '#0a0a14', scale: 2, useCORS: true, scrollX: 0, scrollY: -window.scrollY });
+                // 3. Mini-pausa VITAL para que el celular procese los cambios visuales antes de sacar la foto
+                await new Promise(resolve => setTimeout(resolve, 150));
+
+                const canvas = await html2canvas(targetNode, { 
+                    backgroundColor: '#0a0a14', 
+                    scale: window.devicePixelRatio || 2,
+                    useCORS: true,
+                    scrollX: 0,
+                    scrollY: 0
+                });
+
+                // 4. Restauramos el diseño y los botones
+                targetNode.style.overflowY = originalOverflow;
+                targetNode.style.maxHeight = originalMaxHeight;
                 btnContainer.style.display = 'block'; 
+
+                // 5. MÉTODO BLINDADO PARA CREAR LA IMAGEN (Reemplaza al fetch() que falla en móviles)
+                const dataUrl = canvas.toDataURL('image/png');
+                const byteString = atob(dataUrl.split(',')[1]);
+                const mimeString = dataUrl.split(',')[0].split(':')[1].split(';')[0];
+                const ab = new ArrayBuffer(byteString.length);
+                const ia = new Uint8Array(ab);
+                for (let i = 0; i < byteString.length; i++) {
+                    ia[i] = byteString.charCodeAt(i);
+                }
+                const blob = new Blob([ab], { type: mimeString });
+
+                // 6. Compartir archivo final
+                const file = new File([blob], `VIP-Ticket-${Date.now()}.png`, { type: mimeString });
                 
-                canvas.toBlob(async (blob) => {
-                    if (!blob) { showPremiumAlert("ERROR", "Error generando imagen."); return; }
-                    const file = new File([blob], `VIP-Ticket-${Date.now()}.png`, { type: "image/png" });
-                    if (navigator.canShare && navigator.canShare({ files: [file] })) { 
-                        await navigator.share({ title: 'Pase VIP', files: [file] }); 
-                    } else { 
-                        showPremiumAlert("INFO", "Dispositivo no soporta share."); 
-                    }
-                }, 'image/png', 1.0);
+                if (navigator.canShare && navigator.canShare({ files: [file] })) { 
+                    await navigator.share({ title: 'Pase VIP', files: [file] }); 
+                } else { 
+                    showPremiumAlert("INFO", "El dispositivo no soporta compartir imágenes de forma nativa."); 
+                }
             } catch (err) { 
+                console.error("Error al capturar QR:", err);
                 const b = document.getElementById('qr-buttons'); 
                 if (b) b.style.display = 'block'; 
             }
