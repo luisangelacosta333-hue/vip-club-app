@@ -1077,8 +1077,6 @@
             setTimeout(() => document.getElementById('input-barra-pin').focus(), 120);
         }
 
-        /* 🔥 SOLUCIÓN: El PIN de la barra no deja entrar a "cualquiera".
-           Se destraba con su PIN específico, O con tu PIN de dueño (cAdminPin) O con el PIN general del boliche (cPin) */
         function validarPinBarra() {
             const pinIngresado = document.getElementById('input-barra-pin').value.trim();
             if (!pendingBarraObj) return;
@@ -1513,8 +1511,19 @@
                 document.getElementById('qr-amount').innerText = `$${fmt(val)} · ${method}`;
                 document.getElementById('qr-product-info').innerText = `${qty}x ${safeProduct.toUpperCase()} · ${currentBarraId.toUpperCase()}`;
                 
-                /* 🔥 SOLUCIÓN: QR se ajusta a 195x195 para sumarle 1mm más */
-                if (qc) { qc.innerHTML = ''; new QRCode(qc, { text: qrPayload, width: 195, height: 195, colorDark: '#ff0080', colorLight: '#ffffff', correctLevel: QRCode.CorrectLevel.M }); }
+                /* 🔥 FIX BLANCO + TAMAÑO (+1mm = 200px): Generamos el QR de forma invisible, lo convertimos a imagen fija (base64) y lo clavamos en el HTML. Así html2canvas JAMÁS lo ve en blanco. */
+                if (qc) { 
+                    qc.innerHTML = ''; 
+                    const tempDiv = document.createElement('div');
+                    new QRCode(tempDiv, { text: qrPayload, width: 200, height: 200, colorDark: '#ff0080', colorLight: '#ffffff', correctLevel: QRCode.CorrectLevel.M });
+                    
+                    setTimeout(() => {
+                        const qrCanvas = tempDiv.querySelector('canvas');
+                        if (qrCanvas) {
+                            qc.innerHTML = `<img src="${qrCanvas.toDataURL('image/png')}" style="width: 200px; height: 200px; margin: 0 auto; display: block;">`;
+                        }
+                    }, 50);
+                }
             } catch(e) {
                 showPremiumAlert("ERROR DE TRANSACCIÓN", "La nube rechazó el ticket.");
                 if (mq) mq.style.display = 'none';
@@ -1642,15 +1651,8 @@
                 const targetNode = document.getElementById('modal-qr-content'); 
                 const btnContainer = document.getElementById('qr-buttons'); 
                 btnContainer.style.display = 'none';
-                
-                /* 🔥 FIX BLANCO DEFINITIVO: Convertimos el canvas interno a una imagen cruda (base64)
-                   antes de tomar la foto final. Esto asegura que la librería nunca la vea "vacía" */
-                const qrCanvas = document.querySelector('#qr-container canvas');
-                if (qrCanvas) {
-                    const imgB64 = qrCanvas.toDataURL('image/png');
-                    document.getElementById('qr-container').innerHTML = `<img src="${imgB64}" style="width: 195px; height: 195px; margin: 0 auto; display: block;">`;
-                }
 
+                /* Damos 300ms solo para que los botones desaparezcan visualmente antes de la foto */
                 await new Promise(resolve => setTimeout(resolve, 300));
 
                 const canvas = await html2canvas(targetNode, { backgroundColor: '#0a0a14', scale: 2 });
@@ -1677,8 +1679,20 @@
             let mensaje = `Hola, mi nombre es [Escribí tu nombre acá]. Quiero mi entrada`;
             if (sector.includes("barra")) mensaje = `Hola, mi nombre es [Escribí tu nombre acá]. Estoy en la ${sector.toUpperCase()}, quiero pedir tragos`;
             const link = `https://wa.me/${num}?text=${encodeURIComponent(mensaje)}`;
-            const container = document.getElementById('banner-qr-canvas'); container.innerHTML = '';
-            new QRCode(container, { text: link, width: 512, height: 512, colorDark: '#000000', colorLight: '#ffffff', correctLevel: QRCode.CorrectLevel.H });
+            
+            const container = document.getElementById('banner-qr-canvas'); 
+            container.innerHTML = '';
+            
+            const tempDiv = document.createElement('div');
+            new QRCode(tempDiv, { text: link, width: 512, height: 512, colorDark: '#000000', colorLight: '#ffffff', correctLevel: QRCode.CorrectLevel.H });
+            
+            setTimeout(() => {
+                const qrCanvas = tempDiv.querySelector('canvas');
+                if(qrCanvas) {
+                    container.innerHTML = `<img src="${qrCanvas.toDataURL('image/png')}" style="width: 100%; max-width: 512px; height: auto; border-radius: 12px; display: block;">`;
+                }
+            }, 50);
+
             document.getElementById('banner-qr-box').style.display = 'block';
         }
         async function descargarQRBanner() { 
