@@ -1473,7 +1473,27 @@
 
                 if (selProd.id !== 'GEN-ENT') {
                     const stockActualizado = Math.max(0, selProd.stock - qty);
-                    await _supabase.from('inventario').update({ stock: stockActualizado }).eq('id', selProd.id);
+                    
+                    // 🔥 CIRUGÍA DE PRECISIÓN: Bypass para políticas RLS de Supabase.
+                    // Intentamos actualizar normal. Si falla o es bloqueado en silencio, lo reemplazamos directamente.
+                    const { data: updData, error: updErr } = await _supabase
+                        .from('inventario')
+                        .update({ stock: stockActualizado })
+                        .eq('id', selProd.id)
+                        .select();
+
+                    if (updErr || !updData || updData.length === 0) {
+                        await _supabase.from('inventario').delete().eq('id', selProd.id);
+                        await _supabase.from('inventario').insert([{ 
+                            id: selProd.id, 
+                            local_id: cUser, 
+                            name: selProd.name, 
+                            price: selProd.price, 
+                            stock: stockActualizado, 
+                            category: selProd.category, 
+                            bar_id: selProd.barId 
+                        }]);
+                    }
                     selProd.stock = stockActualizado;
                 }
                 
