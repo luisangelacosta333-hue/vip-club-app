@@ -1474,26 +1474,23 @@
                 if (selProd.id !== 'GEN-ENT') {
                     const stockActualizado = Math.max(0, selProd.stock - qty);
                     
-                    // 🔥 CIRUGÍA DE PRECISIÓN: Bypass para políticas RLS de Supabase.
-                    // Intentamos actualizar normal. Si falla o es bloqueado en silencio, lo reemplazamos directamente.
-                    const { data: updData, error: updErr } = await _supabase
+                    const { error: invErr } = await _supabase
                         .from('inventario')
-                        .update({ stock: stockActualizado })
-                        .eq('id', selProd.id)
-                        .select();
+                        .upsert({
+                            id: selProd.id,
+                            local_id: cUser,
+                            name: selProd.name,
+                            price: selProd.price,
+                            stock: stockActualizado,
+                            category: selProd.category,
+                            bar_id: selProd.barId
+                        }, { onConflict: 'id' });
 
-                    if (updErr || !updData || updData.length === 0) {
-                        await _supabase.from('inventario').delete().eq('id', selProd.id);
-                        await _supabase.from('inventario').insert([{ 
-                            id: selProd.id, 
-                            local_id: cUser, 
-                            name: selProd.name, 
-                            price: selProd.price, 
-                            stock: stockActualizado, 
-                            category: selProd.category, 
-                            bar_id: selProd.barId 
-                        }]);
+                    if (invErr) {
+                        console.error("Supabase rechazó la actualización de stock:", invErr);
+                        throw new Error("Permisos de stock bloqueados por RLS");
                     }
+                    
                     selProd.stock = stockActualizado;
                 }
                 
@@ -1503,7 +1500,8 @@
                 document.getElementById('qr-product-info').innerText = `${qty}x ${safeProduct.toUpperCase()} · ${currentBarraId.toUpperCase()}`;
                 if (qc) { qc.innerHTML = ''; new QRCode(qc, { text: qrPayload, width: 200, height: 200, colorDark: '#ff0080', colorLight: '#ffffff', correctLevel: QRCode.CorrectLevel.M }); }
             } catch(e) {
-                showPremiumAlert("ERROR DE TRANSACCIÓN", "La nube rechazó el ticket.");
+                console.error("Fallo en venta:", e);
+                showPremiumAlert("ERROR DE TRANSACCIÓN", "La nube rechazó el ticket o bloqueó el descuento de stock.");
                 if (mq) mq.style.display = 'none';
             }
         }
